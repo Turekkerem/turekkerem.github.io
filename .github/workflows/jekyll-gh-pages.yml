@@ -49,3 +49,36 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+# Plik konfiguracyjny Jekylla dla GitHub Pages
+source: .
+destination: ./_site
+exclude:
+  - README.md
+  - LICENSE.txt
+  - .gitignore
+  - .DS_Store
+plugins:
+  - jekyll-paginate
+  - jekyll-seo-tag
+markdown: kramdown
+theme: jekyll-theme-hacker
+
+# Zawartość strony o Tobie
+content:
+  title: "Kerem Özdogan - Entuzjasta Szachów i Matematyki"
+  description: "Witaj na mojej stronie! Jestem Kerem Özdogan, pasjonat matematyki, szachów i zagadek logicznych."
+  about_me: |
+    Cześć! Nazywam się **Kerem Özdogan** i jestem entuzjastą matematyki, szachów oraz zagadek logicznych.
+    Od zawsze fascynowały mnie nie tylko liczby, ale także złożoność struktur, które z nich powstają. 
+    Moje zainteresowanie **teorią liczb** oraz **zagadkami logicznymi** stało się moją pasją, którą nieustannie rozwijam.
+
+    **Szachy** to dla mnie coś więcej niż gra - to wyzwanie, które rozwija umiejętności analityczne i logiczne myślenie.
+    Codziennie uczę się nowych taktyk i strategii, a każda partia to okazja do doskonalenia swoich zdolności.
+
+    Matematyka stanowi dla mnie fundament. Uwielbiam zgłębiać tajemnice tej dziedziny, od liczb pierwszych po skomplikowane dowody. 
+    Matematyka nie ma granic - jest pełna pasji i piękna, które można odkrywać na każdym kroku.
+
+    Jeśli chcesz porozmawiać o **szachach**, **matematyce**, **zagadkach logicznych** czy po prostu podzielić się swoimi pomysłami, 
+    zapraszam do kontaktu!
+
+  footer: "Dziękuję za odwiedzenie mojej strony. Pamiętaj, że logika i matematyka to klucze do nieograniczonego świata!"
