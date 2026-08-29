@@ -7,6 +7,8 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/forge/1.3.1/forge.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
     <style>
         :root {
             --bg-color: #0b0f19;
@@ -944,7 +946,14 @@
             art += `+----[SHA256]-----+`;
             return art;
         }
-
+        function base64UrlToBytes(base64url) {
+            const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+            const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
+            const binary = atob(padded);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            return bytes;
+        }
         function formatPem(data, lineLength) {
             const lines = [];
             for (let i = 0; i < data.length; i += lineLength) {
@@ -952,7 +961,93 @@
             }
             return lines.join('\n');
         }
+        function uint32ToBytes(num) {
+            const buf = new ArrayBuffer(4);
+            const view = new DataView(buf);
+            view.setUint32(0, num, false); // big-endian
+            return new Uint8Array(buf);
+        }
 
+        function stringToBytes(str) {
+            const enc = new TextEncoder();
+            return enc.encode(str);
+        }
+
+        function bytesToBase64(bytes) {
+            let binary = '';
+            bytes.forEach(b => binary += String.fromCharCode(b));
+            return btoa(binary);
+        }
+
+        function concatBytes(...arrays) {
+            const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
+            const result = new Uint8Array(totalLength);
+            let offset = 0;
+            arrays.forEach(arr => {
+                result.set(arr, offset);
+                offset += arr.length;
+            });
+            return result;
+        }
+
+        function buildOpenSshEd25519PrivateKey(publicKey, secretKey) {
+            const magic = stringToBytes('openssh-key-v1\0');
+            const cipherName = stringToBytes('none');
+            const kdfName = stringToBytes('none');
+            const kdfOptions = new Uint8Array(0);
+            const numKeys = uint32ToBytes(1);
+
+            const sshEd25519Str = stringToBytes('ssh-ed25519');
+            const publicKeyBlob = concatBytes(
+                uint32ToBytes(sshEd25519Str.length), sshEd25519Str,
+                uint32ToBytes(publicKey.length), publicKey
+            );
+
+            // Losowy checkint (4 bajty) - OpenSSH używa go do weryfikacji deszyfrowania
+            const checkintBytes = new Uint8Array(4);
+            crypto.getRandomValues(checkintBytes);
+
+            // Tworzenie wewnętrznego bloku klucza prywatnego
+            const privateKeyBlob = concatBytes(
+                checkintBytes, checkintBytes,
+                uint32ToBytes(sshEd25519Str.length), sshEd25519Str,
+                uint32ToBytes(publicKey.length), publicKey,
+                uint32ToBytes(secretKey.length), secretKey,
+                uint32ToBytes(0) // Długość komentarza (0)
+            );
+
+            // Padding (dopełnienie do 8 bajtów, wartości to 1, 2, 3...)
+            const padLen = 8 - (privateKeyBlob.length % 8);
+            const padding = new Uint8Array(padLen);
+            for (let i = 0; i < padLen; i++) {
+                padding[i] = i + 1;
+            }
+
+            const paddedPrivate = concatBytes(privateKeyBlob, padding);
+
+            // Złączenie wszystkiego
+            const body = concatBytes(
+                magic,
+                uint32ToBytes(cipherName.length), cipherName,
+                uint32ToBytes(kdfName.length), kdfName,
+                uint32ToBytes(kdfOptions.length), kdfOptions,
+                numKeys,
+                uint32ToBytes(publicKeyBlob.length), publicKeyBlob,
+                uint32ToBytes(paddedPrivate.length), paddedPrivate
+            );
+
+            return bytesToBase64(body);
+        }
+
+        function buildOpenSshPublicKey(publicKey) {
+            const sshEd25519Str = stringToBytes('ssh-ed25519');
+            const blob = concatBytes(
+                uint32ToBytes(sshEd25519Str.length), sshEd25519Str,
+                uint32ToBytes(publicKey.length), publicKey
+            );
+            return `ssh-ed25519 ${bytesToBase64(blob)}`;
+        }
+        
         async function triggerSshKeygen(args) {
             const output = document.getElementById('terminal-output');
             const textbox = document.getElementById('terminal-textbox');
@@ -1000,20 +1095,23 @@
                     const publicFile = privateFile + '.pub';
 
                     if (keyType === 'rsa') {
-                        // Generowanie prawdziwego RSA z workers: 0 (stabilne w przeglądarce)
+                        // Generowanie prawdziwego RSA (tak jak dotychczas)
                         const keypair = await new Promise((resolve) => {
                             pki.rsa.generateKeyPair({ bits: bits, workers: 0 }, (err, keypair) => {
                                 resolve(keypair);
                             });
                         });
-
                         privateKeyPem = pki.privateKeyToPem(keypair.privateKey);
                         publicKeyPem = forge.ssh.publicKeyToOpenSSH(keypair.publicKey);
-                    } else {
-                        // Symulacja dla ed25519 (ponieważ Forge nie generuje krzywych ed25519 natywnie)
-                        const privateData = randomHex(96);
-                        privateKeyPem = `-----BEGIN OPENSSH PRIVATE KEY-----\n${formatPem(privateData, 64)}\n-----END OPENSSH PRIVATE KEY-----`;
-                        publicKeyPem = `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA${randomHex(16)}`;
+                    } else if (keyType === 'ed25519') {
+                        const keyPair = nacl.sign.keyPair();
+                        const pub = keyPair.publicKey;    // 32 bajty
+                        const priv = keyPair.secretKey;   // 64 bajty (seed + pub)
+
+                        // Zwróć uwagę na dodatkowe \n po END OPENSSH PRIVATE KEY
+                        privateKeyPem = `-----BEGIN OPENSSH PRIVATE KEY-----\n${formatPem(buildOpenSshEd25519PrivateKey(pub, priv), 64)}\n-----END OPENSSH PRIVATE KEY-----\n`;
+                        publicKeyPem = buildOpenSshPublicKey(pub);
+                    
                     }
 
                     if (!vfs['~/.ssh']) vfs['~/.ssh'] = { type: 'dir', contents: {} };
@@ -1024,7 +1122,7 @@
                     md.update(publicKeyPem);
                     const fingerprint = forge.util.encode64(md.digest().bytes()).replace(/=+$/, '');
                     
-                    const randomArt = generateRandomArt(keyType, bits);
+                    const randomArt = generateRandomArt(keyType, keyType === 'rsa' ? bits : 256);
 
                     output.innerHTML += `
                         <br>
