@@ -484,6 +484,7 @@
     </footer>
 
     <script>
+        // --- GITHUB REPOS ---
         async function fetchFeaturedRepos() {
             const username = 'Turekkerem';
             const repoNames = ['Veneronica','Internal-Monologue-Attack', 'DPAPI-Abuser-PoC'];
@@ -510,7 +511,6 @@
                         </div>
                     `;
                     container.appendChild(repoRow);
-
                 } catch (error) {
                     console.error(`Error loading repository ${name}:`, error);
                 }
@@ -518,9 +518,108 @@
         }
         document.addEventListener('DOMContentLoaded', fetchFeaturedRepos);
 
-        // --- TERMINAL LOGIC ---
+
+        // --- VIRTUAL FILE SYSTEM ---
+        const vfs = {
+            "/": {
+                type: "dir",
+                contents: {
+                    "home": { type: "dir" },
+                    "root": { type: "dir" },
+                    "etc": { type: "dir" },
+                    "var": { type: "dir" }
+                }
+            },
+            "/home": {
+                type: "dir",
+                contents: {
+                    "kerem": { type: "dir" }
+                }
+            },
+            "/root": {
+                type: "dir",
+                contents: {
+                    "flag.txt": { type: "file", content: "THM{pr1v3l3g3_3sc4l4t10n_m4st3r}" }
+                }
+            },
+            "~": {
+                type: "dir",
+                contents: {
+                    "about_me": { type: "file", content: "Cybersecurity undergraduate at AGH. Researching low-level system internals, cryptography, and offensive tooling." },
+                    "projects": { type: "dir" },
+                    "certificates": { type: "dir" },
+                    ".bashrc": { type: "file", content: "alias ls='ls --color=auto'\nalias ll='ls -la'" },
+                    ".ssh": { type: "dir" },
+                    "linpeas.sh": { type: "file", content: "ELF executable... just kidding, it's a bash script. Give it +x to run!" }
+                }
+            },
+            "~/projects": {
+                type: "dir",
+                contents: {
+                    "Internal-Monologue-Attack": { type: "file", content: "C++ PoC for silently retrieving NTLM hashes from Windows without touching LSASS memory." },
+                    "DPAPI-Abuser-PoC": { type: "file", content: "C++ PoC demonstrating Windows DPAPI mechanics, credential harvesting, and automated browser secret decryption." },
+                    "Veneronica": { type: "file", content: "Academic C++ PoC featuring polymorphism, registry-based cryptographic posture reduction, and timestomping." }
+                }
+            },
+            "~/certificates": {
+                type: "dir",
+                contents: {
+                    "sekurak_certificates": { type: "file", content: "Certificates from Sekurak (Securitum) covering Web Application Security and Network Penetration Testing methodologies." },
+                    "cyber.mil": { type: "file", content: "CYBER.MIL Certificate - Comprehensive training on military-grade cyber defense basics and operational security." },
+                    "tryhackme": { type: "file", content: "TryHackMe Profiles & Badges - Continuous learning path covering Advanced Red Teaming, Windows Exploitation, and Web Security." }
+                }
+            },
+            "~/.ssh": {
+                type: "dir",
+                contents: {
+                    "id_rsa": { type: "file", content: "Nice try. My keys are protected by Windows DPAPI and stored in my head." },
+                    "id_rsa.pub": { type: "file", content: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC... kerem@portfolio" }
+                }
+            }
+        };
+
+        // Helper: resolves relative paths properly like real bash
+        function resolvePath(curr, target) {
+            if (!target || target === '.') return curr;
+            if (target === '~') return '~';
+            if (target === '/') return '/';
+            
+            // Remove trailing slashes for easier parsing
+            if (target.endsWith('/')) target = target.slice(0, -1);
+            
+            let path = target.startsWith('/') ? target : (target.startsWith('~') ? target : `${curr}/${target}`);
+            
+            let parts = path.split('/');
+            let stack = [];
+            
+            for (let p of parts) {
+                if (p === '' || p === '.') continue;
+                if (p === '..') {
+                    if (stack.length > 0 && stack[stack.length - 1] !== '~') {
+                        stack.pop();
+                    } else if (stack.length > 0 && stack[stack.length - 1] === '~') {
+                        stack = ['home']; // go one level up from ~
+                    }
+                } else {
+                    stack.push(p);
+                }
+            }
+            
+            if (stack.length === 0) return '/';
+            if (stack[0] === '~') return stack.join('/');
+            if (stack[0] === 'home' && stack[1] === 'kerem' && stack.length === 2) return '~';
+            if (stack[0] === 'home' && stack[1] === 'kerem') {
+                stack.shift(); stack.shift();
+                return '~/' + stack.join('/');
+            }
+            
+            return '/' + stack.join('/');
+        }
+
+        // --- TERMINAL STATE ---
         let isTerminalInited = false;
         let activeUser = 'kerem';
+        let currentDir = '~';
         let linpeasExecutable = false;
 
         const asciiBanner = `
@@ -543,7 +642,6 @@
             document.getElementById('terminal-modal').style.display = 'flex';
             const output = document.getElementById('terminal-output');
             
-            // Only ask if not already initialized
             if(!isTerminalInited) {
                 setTimeout(() => {
                     output.innerHTML += `<div>Would you like to enter a more engaging way to discover me? (yes/no): </div>`;
@@ -560,12 +658,17 @@
             document.getElementById('terminal-modal').style.display = 'none';
         }
 
-        // Metasploit payload starting glitch effect
+        function getPromptHTML() {
+            const p_color = activeUser === 'root' ? 'var(--danger)' : 'var(--success)';
+            const symbol = activeUser === 'root' ? '#' : '$';
+            return `<span style="color:${p_color};">${activeUser}@portfolio:${currentDir}${symbol}</span>`;
+        }
+
         function triggerLinpeas() {
             const output = document.getElementById('terminal-output');
             const textbox = document.getElementById('terminal-textbox');
             
-            textbox.disabled = true; // Lock input
+            textbox.disabled = true;
             const textToJumble = "exploring and finding vulnerabilities...";
             let iter = 0;
             
@@ -574,7 +677,6 @@
             output.scrollTop = output.scrollHeight;
 
             const jumbleInt = setInterval(() => {
-                // Randomly toggle upper/lowercase
                 let jumbled = textToJumble.split('').map(c => Math.random() > 0.5 ? c.toUpperCase() : c.toLowerCase()).join('');
                 linpeasDiv.innerHTML = `<span style="color:var(--warning);">[+] ${jumbled}</span>`;
                 iter++;
@@ -598,19 +700,58 @@
             }, 100);
         }
 
-        function getPromptHTML() {
-            return activeUser === 'root' 
-                ? '<span style="color:var(--danger);">root@portfolio:~#</span>' 
-                : '<span style="color:var(--success);">kerem@portfolio:~$</span>';
+        function triggerSatanicCrash() {
+            const output = document.getElementById('terminal-output');
+            const textbox = document.getElementById('terminal-textbox');
+            
+            textbox.disabled = true;
+            const msgs = [
+                "oh, you tried to run that...",
+                "it won't work.",
+                "of course it won't work.",
+                "oh, i am starting to feel something...",
+                "it doesn't feel so goo.."
+            ];
+            
+            let delay = 0;
+            msgs.forEach((m) => {
+                setTimeout(() => {
+                    output.innerHTML += `<div style="color:var(--text-main); font-style:italic;">${m}</div>`;
+                    output.scrollTop = output.scrollHeight;
+                }, delay);
+                delay += 1200;
+            });
+
+            setTimeout(() => {
+                const floodInt = setInterval(() => {
+                    const files = ['/boot/vmlinuz', '/etc/passwd', '/etc/shadow', '/var/log/syslog', '/usr/bin/sudo', '/home/kerem/.bashrc', '/dev/sda1', '/sys/firmware/efi/efivars'];
+                    const errs = ['Operation not permitted', 'Permission denied', 'Device or resource busy'];
+                    let f = files[Math.floor(Math.random()*files.length)];
+                    let e = errs[Math.floor(Math.random()*errs.length)];
+                    let c = Math.random() > 0.4 ? `rm: cannot remove '${f}': ${e}` : `removed '${f}'`;
+                    let color = c.startsWith('rm:') ? 'var(--warning)' : 'var(--danger)';
+                    output.innerHTML += `<div style="color:${color}; font-size:0.8rem;">${c}</div>`;
+                    output.scrollTop = output.scrollHeight;
+                }, 50);
+
+                setTimeout(() => {
+                    clearInterval(floodInt);
+                    output.innerHTML += `<div style="color:var(--danger); font-size:1.5rem; font-weight:bold; margin-top:20px;">[ KERNEL PANIC - NOT SYNCING: FATAL EXCEPTION ]</div>`;
+                    output.scrollTop = output.scrollHeight;
+                    
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3500);
+                }, 3500);
+            }, delay + 500);
         }
 
         document.getElementById('terminal-textbox').addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 const output = document.getElementById('terminal-output');
                 const cmdString = this.value.trim();
-                const args = cmdString.split(' ').filter(v => v !== '');
-                const cmd = args[0] ? args[0].toLowerCase() : '';
-                
+                const args = cmdString.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
+                let cmd = args[0] ? args[0].toLowerCase() : '';
                 this.value = '';
 
                 // Handle Auth phase
@@ -621,6 +762,7 @@
                         output.innerHTML += `<div style="color: var(--success);">[+] SSH authentication successful. Welcome to the secure shell!</div>`;
                         output.innerHTML += asciiBanner;
                         output.innerHTML += `<div>Type <b>'help'</b> to view available system commands.</div><br>`;
+                        document.getElementById('prompt-user').innerHTML = getPromptHTML();
                     } else {
                         output.innerHTML += `<div style="color: var(--danger);">[-] Session rejected. Type 'yes' to authenticate.</div>`;
                     }
@@ -628,94 +770,186 @@
                     return;
                 }
 
-                // Handle regular commands
+                // Normal execution output
                 output.innerHTML += `<div>${getPromptHTML()} ${cmdString}</div>`;
 
+                let isSudo = (cmd === 'sudo');
+                if (isSudo) {
+                    cmd = args[1] ? args[1].toLowerCase() : '';
+                    args.shift(); // remove 'sudo' from args processing
+                }
+
+                // Check for satanic command: rm -rf /
+                const hasRmFlags = args.some(a => a === '-rf' || a === '-fr' || a === '-r' || a.startsWith('-rf') || a.startsWith('-fr'));
+                const hasRootTarget = args.some(a => a === '/' || a === '/*' || a === '--no-preserve-root');
+                
+                if (cmd === 'rm' && hasRmFlags && hasRootTarget) {
+                    if (isSudo || activeUser === 'root') {
+                        triggerSatanicCrash();
+                        return;
+                    } else {
+                        output.innerHTML += `<div>rm: cannot remove '/': Permission denied</div>`;
+                        output.scrollTop = output.scrollHeight;
+                        return;
+                    }
+                }
+
+                // Command processing
                 if (cmd === '') {
                     // Do nothing
+                } else if (isSudo && (cmd === 'su' || cmd === '-s' || cmd === '-i')) {
+                    activeUser = 'root';
+                    document.getElementById('prompt-user').innerHTML = getPromptHTML();
+                    output.innerHTML += `<div style="color:var(--danger);">[!] With great power comes great responsibility.</div>`;
+                } else if (isSudo && cmd === '-l') {
+                    output.innerHTML += `<div>User ${activeUser} may run the following commands on portfolio:<br>&nbsp;&nbsp;&nbsp;&nbsp;(ALL : ALL) ALL</div>`;
                 } else if (cmd === 'whoami') {
-                    output.innerHTML += `<div>${activeUser}</div>`;
+                    output.innerHTML += `<div>${isSudo ? 'root' : activeUser}</div>`;
                 } else if (cmd === 'id') {
-                    if(activeUser === 'root') {
+                    if(activeUser === 'root' || isSudo) {
                         output.innerHTML += `<div>uid=0(root) gid=0(root) groups=0(root)</div>`;
                     } else {
                         output.innerHTML += `<div>uid=1000(kerem) gid=1000(kerem) groups=1000(kerem),27(sudo)</div>`;
                     }
-                } else if (cmd === 'ls') {
-                    // Check for hidden flags (-a, -al, -la, -h just in case)
-                    const hasHidden = args.some(a => a.includes('a') || a.includes('h'));
+                } else if (cmd === 'pwd') {
+                    let printDir = currentDir.replace(/^~/, '/home/kerem');
+                    output.innerHTML += `<div>${printDir}</div>`;
+                } else if (cmd === 'cd') {
+                    let targetArg = args[1] || '~';
+                    let resolvedTarget = resolvePath(currentDir, targetArg);
                     
-                    let html = `<div style="color: var(--accent); display: flex; gap: 20px; flex-wrap: wrap;">`;
-                    if (hasHidden) {
-                        const execColor = linpeasExecutable ? 'var(--success)' : 'var(--text-main)';
-                        html += `
-                            <span style="color: var(--text-muted);">.</span>
-                            <span style="color: var(--text-muted);">..</span>
-                            <span style="color: var(--text-muted);">.bashrc</span>
-                            <span style="color: var(--text-muted);">.ssh</span>
-                            <span>📁 about_me</span>
-                            <span>📁 projects</span>
-                            <span>📁 certificates</span>
-                            <span style="color:${execColor};">📄 linpeas.sh</span>
-                        `;
+                    if (vfs[resolvedTarget]) {
+                        if (vfs[resolvedTarget].type === 'dir') {
+                            if (resolvedTarget === '/root' && activeUser !== 'root' && !isSudo) {
+                                output.innerHTML += `<div>bash: cd: ${targetArg}: Permission denied</div>`;
+                            } else {
+                                currentDir = resolvedTarget;
+                            }
+                        } else {
+                            output.innerHTML += `<div>bash: cd: ${targetArg}: Not a directory</div>`;
+                        }
                     } else {
-                        html += `
-                            <span>📁 about_me</span>
-                            <span>📁 projects</span>
-                            <span>📁 certificates</span>
-                        `;
+                        output.innerHTML += `<div>bash: cd: ${targetArg}: No such file or directory</div>`;
                     }
-                    html += `</div>`;
-                    output.innerHTML += html;
+                    document.getElementById('prompt-user').innerHTML = getPromptHTML();
+                
+                } else if (cmd === 'ls') {
+                    // Poprawka błędu: ignorujemy samą komendę `ls` poprzez args.slice(1)
+                    const cmdArgs = args.slice(1);
+                    const hasHidden = cmdArgs.some(a => a.startsWith('-') && (a.includes('a') || a.includes('h') || a.includes('l')));
+                    let targetArg = cmdArgs.find(a => !a.startsWith('-')) || '.';
+                    let resolvedTarget = resolvePath(currentDir, targetArg);
+                    
+                    if (resolvedTarget === '/root' && activeUser !== 'root' && !isSudo) {
+                        output.innerHTML += `<div>ls: cannot open directory '${targetArg}': Permission denied</div>`;
+                    } else if (vfs[resolvedTarget] && vfs[resolvedTarget].type === 'dir') {
+                        let html = `<div style="color: var(--accent); display: flex; gap: 20px; flex-wrap: wrap;">`;
+                        if (hasHidden) {
+                            html += `<span style="color: var(--accent);">📁 .</span>`;
+                            html += `<span style="color: var(--accent);">📁 ..</span>`;
+                        }
+                        
+                        Object.keys(vfs[resolvedTarget].contents).forEach(key => {
+                            if (key.startsWith('.') && !hasHidden) return;
+                            
+                            let type = vfs[resolvedTarget].contents[key].type;
+                            let icon = (type === 'dir') ? '📁' : '📄';
+                            let color = (type === 'dir') ? 'var(--accent)' : 'var(--text-main)';
+                            if (resolvedTarget === '~' && key === 'linpeas.sh') color = linpeasExecutable ? 'var(--success)' : 'var(--text-main)';
+                            
+                            html += `<span style="color:${color};">${icon} ${key}</span>`;
+                        });
+                        html += `</div>`;
+                        output.innerHTML += html;
+                    } else if (vfs[resolvedTarget] && vfs[resolvedTarget].type === 'file') {
+                        output.innerHTML += `<div>${targetArg}</div>`;
+                    } else {
+                        output.innerHTML += `<div>ls: cannot access '${targetArg}': No such file or directory</div>`;
+                    }
+                
                 } else if (cmd === 'chmod') {
                     if (args.length >= 3 && (args[1] === '+x' || args[1] === '777') && args[2] === 'linpeas.sh') {
-                        linpeasExecutable = true;
+                        let targetArg = args[2];
+                        let resolvedTarget = resolvePath(currentDir, targetArg);
+                        if (resolvedTarget === '~/linpeas.sh') {
+                            linpeasExecutable = true;
+                        } else {
+                            output.innerHTML += `<div>chmod: cannot access '${targetArg}': No such file or directory</div>`;
+                        }
                     } else {
                         output.innerHTML += `<div>chmod: missing operand or unrecognized file</div>`;
                     }
-                } else if (cmd === './linpeas.sh' || (cmd === 'bash' && args[1] === 'linpeas.sh') || (cmd === 'sh' && args[1] === 'linpeas.sh')) {
-                    if (!linpeasExecutable && cmd === './linpeas.sh') {
-                        output.innerHTML += `<div style="color: var(--danger);">bash: ./linpeas.sh: Permission denied</div>`;
+
+                } else if (['./linpeas.sh', '.\\linpeas.sh', 'linpeas.sh'].includes(cmd) || 
+                           ((cmd === 'bash' || cmd === 'sh') && args[1] === 'linpeas.sh')) {
+                    
+                    if (currentDir === '~') {
+                        if (!linpeasExecutable && !['bash', 'sh'].includes(cmd)) {
+                            output.innerHTML += `<div style="color: var(--danger);">bash: ${cmd}: Permission denied</div>`;
+                        } else {
+                            triggerLinpeas();
+                        }
                     } else {
-                        triggerLinpeas();
+                        let invokedCmd = ['bash', 'sh'].includes(cmd) ? `${cmd} ${args[1]}` : cmd;
+                        output.innerHTML += `<div>bash: ${invokedCmd}: No such file or directory</div>`;
                     }
-                } else if (cmd === 'sudo') {
-                    if (activeUser === 'root') {
-                        output.innerHTML += `<div>You are already root!</div>`;
-                    } else if (args[1] === 'su' || args[1] === '-s' || args[1] === '-i') {
-                        activeUser = 'root';
-                        document.getElementById('prompt-user').innerHTML = '<span style="color:var(--danger);">root@portfolio:~#</span>';
-                        output.innerHTML += `<div style="color:var(--danger);">[!] With great power comes great responsibility.</div>`;
-                    } else if (args[1] === '-l') {
-                        output.innerHTML += `<div>User ${activeUser} may run the following commands on portfolio:<br>&nbsp;&nbsp;&nbsp;&nbsp;(ALL : ALL) ALL</div>`;
-                    } else if (args[1] === 'rm' && args.includes('-rf') && args.includes('/')) {
-                        output.innerHTML += `<div style="color:var(--danger);">Erasing system...</div>`;
-                        setTimeout(() => {
-                            output.innerHTML = `<div style="color:var(--danger);">System Destroyed. Just kidding, nice try.</div><br>`;
-                        }, 500);
-                    } else {
-                        output.innerHTML += `<div>sudo: executing ${args.slice(1).join(' ')} as root... done.</div>`;
-                    }
+
                 } else if (cmd === 'cat') {
-                    const target = args[1];
-                    if(target === 'about_me') {
-                        output.innerHTML += `<div>Cybersecurity undergraduate at AGH. Researching low-level system internals, cryptography, and offensive tooling.</div>`;
-                    } else if (target === 'projects') {
-                        output.innerHTML += `<div>1. Internal-Monologue-Attack<br>2. DPAPI-Abuser-PoC<br>3. Veneronica</div>`;
-                    } else if (target === 'linpeas.sh') {
-                        output.innerHTML += `<div>ELF executable... just kidding, it's a bash script. Run it!</div>`;
-                    } else if (target === '.ssh/id_rsa' || target === '.ssh') {
-                        output.innerHTML += `<div style="color:var(--danger);">Nice try. My keys are protected by Windows DPAPI and stored in my head.</div>`;
+                    let targetArg = args[1];
+                    if (!targetArg) {
+                        output.innerHTML += `<div>cat: missing operand</div>`;
                     } else {
-                        output.innerHTML += `<div>cat: ${target || ''}: No such file or directory</div>`;
+                        let resolvedTarget = resolvePath(currentDir, targetArg);
+                        let item = null;
+                        
+                        // Parse folder/file structure for cat resolving
+                        let lastSlashIndex = resolvedTarget.lastIndexOf('/');
+                        if (lastSlashIndex !== -1) {
+                            let dirPart = resolvedTarget.substring(0, lastSlashIndex);
+                            if (dirPart === '') dirPart = '/'; // edge case for root
+                            let filePart = resolvedTarget.substring(lastSlashIndex + 1);
+                            
+                            if (vfs[dirPart] && vfs[dirPart].contents[filePart]) {
+                                item = vfs[dirPart].contents[filePart];
+                            } else if (vfs[resolvedTarget]) {
+                                item = vfs[resolvedTarget]; // case: cat applied directly on directory name
+                            }
+                        } else if (vfs[resolvedTarget]) {
+                             item = vfs[resolvedTarget];
+                        }
+
+                        if (item) {
+                            if (item.type === 'dir') {
+                                output.innerHTML += `<div>cat: ${targetArg}: Is a directory</div>`;
+                            } else {
+                                // Files requiring root
+                                let restricted = ['id_rsa', 'flag.txt', 'shadow'];
+                                let fileName = resolvedTarget.substring(resolvedTarget.lastIndexOf('/') + 1);
+                                
+                                if (restricted.includes(fileName) && activeUser !== 'root' && !isSudo) {
+                                    output.innerHTML += `<div style="color:var(--danger);">cat: ${targetArg}: Permission denied</div>`;
+                                } else if (fileName === 'id_rsa' && (activeUser === 'root' || isSudo)) {
+                                    output.innerHTML += `<div style="color:var(--danger);">${item.content}</div>`;
+                                } else if (fileName === 'flag.txt' && (activeUser === 'root' || isSudo)) {
+                                    output.innerHTML += `<div style="color:var(--success); font-weight: bold;">${item.content}</div>`;
+                                } else {
+                                    output.innerHTML += `<div>${item.content}</div>`;
+                                }
+                            }
+                        } else {
+                            output.innerHTML += `<div>cat: ${targetArg}: No such file or directory</div>`;
+                        }
                     }
+
                 } else if (cmd === 'help') {
                     output.innerHTML += `<div>Available commands:
                         <br> - <b>whoami</b> / <b>id</b> : verify privileges
+                        <br> - <b>pwd</b> : print working directory
+                        <br> - <b>cd [dir]</b> : change directory
                         <br> - <b>ls</b> / <b>ls -la</b> : list directory contents
-                        <br> - <b>sudo</b> : escalate privileges (-l, su, etc.)
+                        <br> - <b>sudo</b> : escalate privileges (su, -l)
                         <br> - <b>cat [file]</b> : read file content
-                        <br> - <b>chmod [mode] [file]</b> : change file permissions
+                        <br> - <b>chmod +x [file]</b> : make file executable
                         <br> - <b>clear</b> : clear terminal buffer
                         <br> - <b>exit</b> : close SSH session
                     </div>`;
@@ -723,6 +957,8 @@
                     output.innerHTML = '';
                 } else if (cmd === 'exit' || cmd === 'quit') {
                     closeTerminal();
+                } else if (isSudo) {
+                    output.innerHTML += `<div>sudo: executing ${cmd} as root... done.</div>`;
                 } else {
                     output.innerHTML += `<div style="color: var(--danger);">bash: ${cmd}: command not found. Type 'help' for options.</div>`;
                 }
