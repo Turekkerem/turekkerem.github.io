@@ -17,6 +17,7 @@
             --accent-glow: rgba(59, 130, 246, 0.3);
             --success: #10b981;
             --warning: #f59e0b;
+            --danger: #ef4444;
         }
 
         * {
@@ -250,12 +251,136 @@
             color: var(--warning);
         }
 
-        .loading-text {
+        /* --- TERMINAL WIDGET & MODAL CSS --- */
+        .chatbot-terminal-widget {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            width: 60px;
+            height: 60px;
+            background: var(--card-bg, #111827);
+            border: 2px solid var(--success, #10b981);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--success, #10b981);
+            font-size: 1.4rem;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+            z-index: 9998;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .chatbot-terminal-widget:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 6px 25px rgba(16, 185, 129, 0.5);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .chatbot-terminal-tooltip {
+            position: fixed;
+            bottom: 38px;
+            right: 95px;
+            background: #111827;
+            color: #f3f4f6;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #1f2937;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 9997;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .chatbot-terminal-widget:hover + .chatbot-terminal-tooltip {
+            opacity: 1;
+        }
+
+        #terminal-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .terminal-window {
+            width: 100%;
+            max-width: 800px;
+            height: 500px;
+            background: #090d16;
+            border: 1px solid var(--success);
+            border-radius: 8px;
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .terminal-header {
+            background: #111827;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .terminal-title {
             color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .terminal-close {
+            color: var(--danger);
+            cursor: pointer;
+            font-weight: bold;
+            background: none;
+            border: none;
+            font-size: 1rem;
+        }
+
+        .terminal-body {
+            padding: 20px;
+            flex-grow: 1;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            color: #d1d5db;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .terminal-input-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .terminal-input {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.9rem;
-            text-align: center;
-            padding: 20px;
+            outline: none;
+            flex-grow: 1;
+        }
+        
+        .terminal-input:disabled {
+            background: transparent;
         }
 
         footer {
@@ -276,7 +401,7 @@
     <header>
         <div class="avatar-container">TRK</div>
         <h1>Turekkerem</h1>
-        <p class="tagline">Cybersecurity Student at AGH (Class of 2024/2025) | Cryptography & Malware Research</p>
+        <p class="tagline">Cybersecurity Student at AGH | Cryptography & Malware Research</p>
         
         <div class="nav-links">
             <a href="index.html" style="border-color: var(--accent);"><i class="fas fa-home"></i> Portfolio</a>
@@ -291,12 +416,13 @@
     <main>
         <div class="card">
             <h2><i class="fas fa-user-shield"></i> About Me & Background</h2>
-            <p>I am a Cybersecurity undergraduate student at AGH University of Krakow (Class of 2024/2025). My primary focus lies in low-level system internals, offensive security tooling, and the intricate world of cryptography - ranging from classical cipher limitations to modern post-quantum paradigms.</p>
+            <p>I am a Cybersecurity undergraduate student at AGH University of Krakow. My primary focus lies in low-level system internals, offensive security tooling, and the intricate world of cryptography—ranging from classical cipher limitations to modern post-quantum paradigms.</p>
             
             <div class="highlight-box">
                 <p><strong>Hands-on Learning:</strong> Actively solving labs and challenges on TryHackMe. Track my progress at <a href="https://tryhackme.com/p/turekkerem" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">tryhackme.com/p/turekkerem <i class="fas fa-external-link-alt" style="font-size: 0.75rem;"></i></a>.</p>
             </div>
         </div>
+
         <div class="card">
             <h3>Certifications & Credentials</h3>
             <p>Committed to continuous professional growth and validated security knowledge through various industry-recognized training platforms:</p>
@@ -312,10 +438,10 @@
             <p>An overview of the core technical themes behind my public and experimental repositories:</p>
 
             <h3>1. Educational Ransomware & Hybrid Encryption Prototypes</h3>
-            <p>Developing functional ransomware prototypes strictly for academic and defensive research purposes. This involves analyzing efficient directory traversal patterns, multi-threaded file enumeration, and implementing robust hybrid encryption schemes (AES-256 payloads secured via public-key cryptography) to understand how malware authors handle key exchanges and target isolation.</p>
+            <p>Developing functional ransomware prototypes strictly for academic and defensive research purposes. This involves analyzing efficient directory traversal patterns, multi-threaded file enumeration, and implementing robust hybrid encryption schemes (AES-256 payloads secured via public-key cryptography).</p>
 
             <h3>2. Cryptography: Classical Limitations & Post-Quantum (PQC) Shift</h3>
-            <p>Exploring the cryptographic spectrum from classical and traditional ciphers to the emerging post-quantum era. Traditional asymmetric schemes (RSA, ECC, Diffie-Hellman) face severe vulnerabilities against scalable quantum attacks via Shor's algorithm. My research focuses on analyzing the architectural friction, performance overhead, and memory constraints involved in migrating toward NIST-standardized Post-Quantum Cryptography (lattice-based and hash-based signatures), alongside studying implementation flaws like cryptographic downgrades.</p>
+            <p>Exploring the cryptographic spectrum from classical and traditional ciphers to the emerging post-quantum era. Traditional asymmetric schemes face severe vulnerabilities against scalable quantum attacks via Shor's algorithm. My research focuses on analyzing architectural friction, memory constraints, and migration strategies toward NIST-standardized Post-Quantum Cryptography.</p>
         </div>
 
         <div class="card">
@@ -328,6 +454,31 @@
         </div>
     </main>
 
+    <!-- FLOATING TERMINAL WIDGET -->
+    <div class="chatbot-terminal-widget" onclick="promptTerminal()" title="SSH Session">
+        <i class="fas fa-terminal"></i>
+    </div>
+    <div class="chatbot-terminal-tooltip">Open SSH Session</div>
+
+    <!-- TERMINAL MODAL -->
+    <div id="terminal-modal">
+        <div class="terminal-window">
+            <div class="terminal-header">
+                <span class="terminal-title"><i class="fas fa-shield-alt"></i> root@turekkerem-portfolio:~ (ssh)</span>
+                <button class="terminal-close" onclick="closeTerminal()">[X]</button>
+            </div>
+            <div class="terminal-body" id="terminal-output">
+                <div>Connecting to portfolio remote daemon...</div>
+                <div>Connection established. Type <b>'help'</b> for available commands or explore naturally.</div>
+                <br>
+            </div>
+            <div class="terminal-input-line" id="input-container" style="padding: 10px 20px; background: #090d16; border-top: 1px solid var(--border-color); display: none;">
+                <span id="prompt-user" style="color:var(--success);">kerem@portfolio:~$</span>
+                <input type="text" id="terminal-textbox" class="terminal-input" autocomplete="off" spellcheck="false">
+            </div>
+        </div>
+    </div>
+
     <footer>
         <p>&copy; 2026 Turekkerem. Built with raw curiosity and low-level code.</p>
     </footer>
@@ -335,7 +486,7 @@
     <script>
         async function fetchFeaturedRepos() {
             const username = 'Turekkerem';
-            const repoNames = [ 'Veneronica','DPAPI-Abuser-PoC','Internal-Monologue-Attack'];
+            const repoNames = ['Veneronica','Internal-Monologue-Attack', 'DPAPI-Abuser-PoC'];
             const container = document.getElementById('repos-container');
             container.innerHTML = '';
 
@@ -365,8 +516,220 @@
                 }
             }
         }
-
         document.addEventListener('DOMContentLoaded', fetchFeaturedRepos);
+
+        // --- TERMINAL LOGIC ---
+        let isTerminalInited = false;
+        let activeUser = 'kerem';
+        let linpeasExecutable = false;
+
+        const asciiBanner = `
+<div style="color: var(--warning); white-space: pre; font-size: 0.8rem; line-height: 1.2;">
+=================================================================
+   ____  _                               _     _ 
+  / __ \\| |                             | |   | |
+ | |  | | |__   _   _  ___  __ _  __ _  | |__ | |
+ | |  | | '_ \\ | | | |/ _ \\/ _\` |/ _\` | | '_ \\| |
+ | |__| | | | || |_| |  __/ (_| | (_| | | | | |_|
+  \\____/|_| |_| \\__, |\\___|\\__,_|\\__,_| |_| |_(_)
+                 __/ |                           
+                |___/                            
+          
+          You have chosen the better way.
+=================================================================
+</div>`;
+
+        function promptTerminal() {
+            document.getElementById('terminal-modal').style.display = 'flex';
+            const output = document.getElementById('terminal-output');
+            
+            // Only ask if not already initialized
+            if(!isTerminalInited) {
+                setTimeout(() => {
+                    output.innerHTML += `<div>Would you like to enter a more engaging way to discover me? (yes/no): </div>`;
+                    output.scrollTop = output.scrollHeight;
+                    document.getElementById('input-container').style.display = 'flex';
+                    document.getElementById('terminal-textbox').focus();
+                }, 600);
+            } else {
+                document.getElementById('terminal-textbox').focus();
+            }
+        }
+
+        function closeTerminal() {
+            document.getElementById('terminal-modal').style.display = 'none';
+        }
+
+        // Metasploit payload starting glitch effect
+        function triggerLinpeas() {
+            const output = document.getElementById('terminal-output');
+            const textbox = document.getElementById('terminal-textbox');
+            
+            textbox.disabled = true; // Lock input
+            const textToJumble = "exploring and finding vulnerabilities...";
+            let iter = 0;
+            
+            const linpeasDiv = document.createElement('div');
+            output.appendChild(linpeasDiv);
+            output.scrollTop = output.scrollHeight;
+
+            const jumbleInt = setInterval(() => {
+                // Randomly toggle upper/lowercase
+                let jumbled = textToJumble.split('').map(c => Math.random() > 0.5 ? c.toUpperCase() : c.toLowerCase()).join('');
+                linpeasDiv.innerHTML = `<span style="color:var(--warning);">[+] ${jumbled}</span>`;
+                iter++;
+                
+                if(iter > 18) {
+                    clearInterval(jumbleInt);
+                    linpeasDiv.innerHTML = `<span style="color:var(--success);">[+] Exploring and finding vulnerabilities... DONE.</span>`;
+                    
+                    output.innerHTML += `
+                        <br>
+                        <div style="color:var(--danger); font-weight: bold;">[!] CRITICAL VULNERABILITIES FOUND:</div>
+                        <div> - <b>CVE-2026-CRYPTO</b>: Too heavily invested in low-level internals and cryptography.</div>
+                        <div> - <b>CVE-2026-NUTRITION</b>: Severe physical weakness detected to <span style="color:var(--success);">spinach pancakes (naleśniki ze szpinakiem)</span>.</div>
+                        <div> - <b>Privilege Escalation Vector</b>: Can be easily bribed with a good TryHackMe room.</div>
+                        <br>
+                    `;
+                    output.scrollTop = output.scrollHeight;
+                    textbox.disabled = false;
+                    textbox.focus();
+                }
+            }, 100);
+        }
+
+        function getPromptHTML() {
+            return activeUser === 'root' 
+                ? '<span style="color:var(--danger);">root@portfolio:~#</span>' 
+                : '<span style="color:var(--success);">kerem@portfolio:~$</span>';
+        }
+
+        document.getElementById('terminal-textbox').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const output = document.getElementById('terminal-output');
+                const cmdString = this.value.trim();
+                const args = cmdString.split(' ').filter(v => v !== '');
+                const cmd = args[0] ? args[0].toLowerCase() : '';
+                
+                this.value = '';
+
+                // Handle Auth phase
+                if (!isTerminalInited) {
+                    output.innerHTML += `<div><span style="color:var(--text-muted);">${cmdString}</span></div>`;
+                    if (cmd === 'yes' || cmd === 'y' || cmd === 'tak') {
+                        isTerminalInited = true;
+                        output.innerHTML += `<div style="color: var(--success);">[+] SSH authentication successful. Welcome to the secure shell!</div>`;
+                        output.innerHTML += asciiBanner;
+                        output.innerHTML += `<div>Type <b>'help'</b> to view available system commands.</div><br>`;
+                    } else {
+                        output.innerHTML += `<div style="color: var(--danger);">[-] Session rejected. Type 'yes' to authenticate.</div>`;
+                    }
+                    output.scrollTop = output.scrollHeight;
+                    return;
+                }
+
+                // Handle regular commands
+                output.innerHTML += `<div>${getPromptHTML()} ${cmdString}</div>`;
+
+                if (cmd === '') {
+                    // Do nothing
+                } else if (cmd === 'whoami') {
+                    output.innerHTML += `<div>${activeUser}</div>`;
+                } else if (cmd === 'id') {
+                    if(activeUser === 'root') {
+                        output.innerHTML += `<div>uid=0(root) gid=0(root) groups=0(root)</div>`;
+                    } else {
+                        output.innerHTML += `<div>uid=1000(kerem) gid=1000(kerem) groups=1000(kerem),27(sudo)</div>`;
+                    }
+                } else if (cmd === 'ls') {
+                    // Check for hidden flags (-a, -al, -la, -h just in case)
+                    const hasHidden = args.some(a => a.includes('a') || a.includes('h'));
+                    
+                    let html = `<div style="color: var(--accent); display: flex; gap: 20px; flex-wrap: wrap;">`;
+                    if (hasHidden) {
+                        const execColor = linpeasExecutable ? 'var(--success)' : 'var(--text-main)';
+                        html += `
+                            <span style="color: var(--text-muted);">.</span>
+                            <span style="color: var(--text-muted);">..</span>
+                            <span style="color: var(--text-muted);">.bashrc</span>
+                            <span style="color: var(--text-muted);">.ssh</span>
+                            <span>📁 about_me</span>
+                            <span>📁 projects</span>
+                            <span>📁 certificates</span>
+                            <span style="color:${execColor};">📄 linpeas.sh</span>
+                        `;
+                    } else {
+                        html += `
+                            <span>📁 about_me</span>
+                            <span>📁 projects</span>
+                            <span>📁 certificates</span>
+                        `;
+                    }
+                    html += `</div>`;
+                    output.innerHTML += html;
+                } else if (cmd === 'chmod') {
+                    if (args.length >= 3 && (args[1] === '+x' || args[1] === '777') && args[2] === 'linpeas.sh') {
+                        linpeasExecutable = true;
+                    } else {
+                        output.innerHTML += `<div>chmod: missing operand or unrecognized file</div>`;
+                    }
+                } else if (cmd === './linpeas.sh' || (cmd === 'bash' && args[1] === 'linpeas.sh') || (cmd === 'sh' && args[1] === 'linpeas.sh')) {
+                    if (!linpeasExecutable && cmd === './linpeas.sh') {
+                        output.innerHTML += `<div style="color: var(--danger);">bash: ./linpeas.sh: Permission denied</div>`;
+                    } else {
+                        triggerLinpeas();
+                    }
+                } else if (cmd === 'sudo') {
+                    if (activeUser === 'root') {
+                        output.innerHTML += `<div>You are already root!</div>`;
+                    } else if (args[1] === 'su' || args[1] === '-s' || args[1] === '-i') {
+                        activeUser = 'root';
+                        document.getElementById('prompt-user').innerHTML = '<span style="color:var(--danger);">root@portfolio:~#</span>';
+                        output.innerHTML += `<div style="color:var(--danger);">[!] With great power comes great responsibility.</div>`;
+                    } else if (args[1] === '-l') {
+                        output.innerHTML += `<div>User ${activeUser} may run the following commands on portfolio:<br>&nbsp;&nbsp;&nbsp;&nbsp;(ALL : ALL) ALL</div>`;
+                    } else if (args[1] === 'rm' && args.includes('-rf') && args.includes('/')) {
+                        output.innerHTML += `<div style="color:var(--danger);">Erasing system...</div>`;
+                        setTimeout(() => {
+                            output.innerHTML = `<div style="color:var(--danger);">System Destroyed. Just kidding, nice try.</div><br>`;
+                        }, 500);
+                    } else {
+                        output.innerHTML += `<div>sudo: executing ${args.slice(1).join(' ')} as root... done.</div>`;
+                    }
+                } else if (cmd === 'cat') {
+                    const target = args[1];
+                    if(target === 'about_me') {
+                        output.innerHTML += `<div>Cybersecurity undergraduate at AGH. Researching low-level system internals, cryptography, and offensive tooling.</div>`;
+                    } else if (target === 'projects') {
+                        output.innerHTML += `<div>1. Internal-Monologue-Attack<br>2. DPAPI-Abuser-PoC<br>3. Veneronica</div>`;
+                    } else if (target === 'linpeas.sh') {
+                        output.innerHTML += `<div>ELF executable... just kidding, it's a bash script. Run it!</div>`;
+                    } else if (target === '.ssh/id_rsa' || target === '.ssh') {
+                        output.innerHTML += `<div style="color:var(--danger);">Nice try. My keys are protected by Windows DPAPI and stored in my head.</div>`;
+                    } else {
+                        output.innerHTML += `<div>cat: ${target || ''}: No such file or directory</div>`;
+                    }
+                } else if (cmd === 'help') {
+                    output.innerHTML += `<div>Available commands:
+                        <br> - <b>whoami</b> / <b>id</b> : verify privileges
+                        <br> - <b>ls</b> / <b>ls -la</b> : list directory contents
+                        <br> - <b>sudo</b> : escalate privileges (-l, su, etc.)
+                        <br> - <b>cat [file]</b> : read file content
+                        <br> - <b>chmod [mode] [file]</b> : change file permissions
+                        <br> - <b>clear</b> : clear terminal buffer
+                        <br> - <b>exit</b> : close SSH session
+                    </div>`;
+                } else if (cmd === 'clear') {
+                    output.innerHTML = '';
+                } else if (cmd === 'exit' || cmd === 'quit') {
+                    closeTerminal();
+                } else {
+                    output.innerHTML += `<div style="color: var(--danger);">bash: ${cmd}: command not found. Type 'help' for options.</div>`;
+                }
+
+                output.scrollTop = output.scrollHeight;
+            }
+        });
     </script>
 </body>
 </html>
