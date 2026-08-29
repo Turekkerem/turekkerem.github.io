@@ -581,7 +581,7 @@
         // --- GITHUB REPOS ---
         async function fetchFeaturedRepos() {
             const username = 'Turekkerem';
-            const repoNames = ['Veneronica','Internal-Monologue-Attack', 'DPAPI-Abuser-PoC'];
+            const repoNames = ['Veneronica','Internal-Monologue-Attack', 'DPAPI-Abuser-PoC',"The-Prude-Project"];
             const container = document.getElementById('repos-container');
             container.innerHTML = '';
 
@@ -610,8 +610,39 @@
                 }
             }
         }
-        document.addEventListener('DOMContentLoaded', fetchFeaturedRepos);
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchFeaturedRepos();
+            initDynamicProjectsVfs();
+            initCertificatesVfs();
+        });
 
+        async function initDynamicProjectsVfs() {
+            const username = 'Turekkerem';
+            const repoNames = ['Veneronica', 'Internal-Monologue-Attack', 'DPAPI-Abuser-PoC', 'The-Prude-Project'];
+            
+            // Upewniamy się, że obiekt kontenera istnieje w vfs
+            if (!vfs["~/projects"]) {
+                vfs["~/projects"] = { type: "dir", contents: {} };
+            }
+            vfs["~/projects"].contents = {};
+
+            for (const name of repoNames) {
+                try {
+                    const response = await fetch(`https://api.github.com/repos/${username}/${name}`);
+                    if (!response.ok) continue;
+                    
+                    const repo = await response.json();
+                    const description = repo.description ? repo.description : 'No description provided.';
+
+                    vfs["~/projects"].contents[repo.name] = {
+                        type: "file",
+                        content: description
+                    };
+                } catch (error) {
+                    console.error(`Nie udało się pobrać repozytorium ${name} do VFS:`, error);
+                }
+            }
+        }
         // --- VIRTUAL FILE SYSTEM ---
         const vfs = {
             "/": { type: "dir", contents: { "home": { type: "dir" }, "root": { type: "dir" }, "etc": { type: "dir" }, "var": { type: "dir" } } },
@@ -619,11 +650,32 @@
             "/home": { type: "dir", contents: { "kerem": { type: "dir" } } },
             "/root": { type: "dir", contents: { "root.txt": { type: "file", content: "THM{pr1v3l3g3_3sc4l4t10n_m4st3r}" } } },
             "~": { type: "dir", contents: { "about_me": { type: "file", content: "Cybersecurity undergraduate at AGH. Researching low-level system internals, cryptography, and offensive tooling." }, "projects": { type: "dir" }, "certificates": { type: "dir" }, ".bashrc": { type: "file", content: "alias ls='ls --color=auto'\nalias ll='ls -la'" }, ".ssh": { type: "dir" }, "linpeas.sh": { type: "file", content: "ELF executable... just kidding, it's a bash script. Give it +x to run!" } } },
-            "~/projects": { type: "dir", contents: { "Internal-Monologue-Attack": { type: "file", content: "C++ PoC for silently retrieving NTLM hashes from Windows without touching LSASS memory." }, "DPAPI-Abuser-PoC": { type: "file", content: "C++ PoC demonstrating Windows DPAPI mechanics, credential harvesting, and automated browser secret decryption." }, "Veneronica": { type: "file", content: "Academic C++ PoC featuring polymorphism, registry-based cryptographic posture reduction, and timestomping." } } },
+            "~/projects": { type: "dir", contents: { } },//"Internal-Monologue-Attack": { type: "file", content: "C++ PoC for silently retrieving NTLM hashes from Windows without touching LSASS memory." }, "DPAPI-Abuser-PoC": { type: "file", content: "C++ PoC demonstrating Windows DPAPI mechanics, credential harvesting, and automated browser secret decryption." }, "Veneronica": { type: "file", content: "Academic C++ PoC featuring polymorphism, registry-based cryptographic posture reduction, and timestomping." } 
             "~/certificates": { type: "dir", contents: { "sekurak_certificates": { type: "file", content: "Certificates from Sekurak (Securitum) covering Web Application Security and Network Penetration Testing methodologies." }, "cyber.mil": { type: "file", content: "CYBER.MIL Certificate - Comprehensive training on military-grade cyber defense basics and operational security." }, "tryhackme": { type: "file", content: "TryHackMe Profiles & Badges - Continuous learning path covering Advanced Red Teaming, Windows Exploitation, and Web Security." } } },
             "~/.ssh": { type: "dir", contents: { "id_rsa": { type: "file", content: "Nice try. My keys are protected by Windows DPAPI (yeah,i know that much that even on linux DPAPI from windows protect me here) and stored in my head." }, "id_rsa.pub": { type: "file", content: "ssh-rsa eW91IGNoZWNrZWQgaGVyZSB0b28/Pz8/Pz8= kerem@portfolio" }, "user.txt": { type: "file",content: "flag{s0_v3ry_unusu@l_pl@ce_f0r_th3_f1ag}"} } }
         };
+        function initCertificatesVfs() {
+            if (!vfs["~/certificates"]) {
+                vfs["~/certificates"] = { type: "dir", contents: {} };
+            }
+            vfs["~/certificates"].contents = {};
 
+            for (const [key, cert] of Object.entries(certData)) {
+                let textContent = `<b>${cert.title}</b><br>${cert.description}<br><br><b>Details:</b><br>`;
+                cert.items.forEach(item => {
+                    if (typeof item === 'string') {
+                        textContent += `• ${item}<br>`;
+                    } else {
+                        textContent += `• <b>${item.title}</b>: ${item.description}<br>`;
+                    }
+                });
+
+                vfs["~/certificates"].contents[key] = {
+                    type: "file",
+                    content: textContent
+                };
+            }
+        }
         function resolvePath(curr, target) {
             if (!target || target === '.') return curr;
             if (target === '~') return '~';
