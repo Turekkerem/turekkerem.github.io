@@ -393,6 +393,90 @@
             max-width: 900px;
             margin: 0 auto;
         }
+                /* Istniejący styl .cert-badge zostaje, ale dodajemy klasę cert-trigger */
+        .cert-badge.cert-trigger {
+            cursor: pointer;
+            transition: all 0.25s ease;
+            user-select: none;
+        }
+
+        .cert-badge.cert-trigger:hover {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: var(--success);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .cert-badge.cert-trigger.active {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: var(--success);
+            box-shadow: 0 0 0 2px var(--success);
+        }
+
+        .cert-details {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(17, 24, 39, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .cert-details h4 {
+            color: var(--success);
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .cert-details ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .cert-details ul li {
+            margin-bottom: 8px;
+            color: var(--text-muted);
+            position: relative;
+            padding-left: 25px;
+        }
+
+        .cert-details ul li::before {
+            content: "\f058"; /* ikona check-circle z Font Awesome */
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            color: var(--success);
+        }
+        .cert-items-list {
+            list-style: none;
+            padding-left: 0;
+            margin-top: 10px;
+        }
+
+        .cert-item-card {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            background: rgba(17, 24, 39, 0.6);
+            border-left: 3px solid var(--success);
+            border-radius: 0 6px 6px 0;
+        }
+
+        .cert-item-title {
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 4px;
+            font-size: 0.95rem;
+        }
+
+        .cert-item-desc {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -427,11 +511,20 @@
         <div class="card">
             <h3>Certifications & Credentials</h3>
             <p>Committed to continuous professional growth and validated security knowledge through various industry-recognized training platforms:</p>
-            <div class="badge-container">
-                <span class="cert-badge"><i class="fas fa-certificate"></i> CYBER.MIL Certification</span>
-                <span class="cert-badge"><i class="fas fa-certificate"></i> Sekurak Certification</span>
-                <span class="cert-badge"><i class="fas fa-certificate"></i> TryHackMe Badges & Labs</span>
+            <div class="badge-container" id="certifications-container">
+                <div class="cert-badge cert-trigger" data-cert="cybermil">
+                    <i class="fas fa-certificate"></i> CYBER.MIL Certification
+                </div>
+                <div class="cert-badge cert-trigger" data-cert="sekurak">
+                    <i class="fas fa-certificate"></i> Sekurak Certification
+                </div>
+                <div class="cert-badge cert-trigger" data-cert="tryhackme">
+                    <i class="fas fa-certificate"></i> TryHackMe Badges & Labs
+                </div>
             </div>
+            
+            <!-- Panel szczegółów -->
+            <div id="cert-details" class="cert-details" style="display: none;"></div>
         </div>
 
         <div class="card">
@@ -1357,6 +1450,101 @@
                 output.scrollTop = output.scrollHeight;
             }
         });
+        // Dane certyfikatów (możesz edytować według własnych osiągnięć)
+        const certData = {
+            cybermil: {
+                title: "CYBER.MIL Certificate",
+                description: "Training in the fundamentals of cybersecurity, organized by the Ministry of National Defence. Completed with a positive result.",
+                items: [
+                    {
+                        title: "CyberOps Associate (Cisco Networking Academy)",
+                        description: "Offered by Eksperckie Centrum Szkolenia Cyberbezpieczeństwa through the Cisco Networking Academy program. Covers network fundamentals, incident response, cryptography, common attacks on network/web, and how to prevent malicious activity on data, computer networks, and hosts."
+                    },
+                    {
+                        title: "Akademia Bezpieczeństwa",
+                        description: "Hands-on training focused on digital forensics and network attacks, including ARP poisoning techniques. Practical approach similar to CyberOps, but with a stronger emphasis on offensive security and real-world scenarios."
+                    }
+                ]
+            },
+            sekurak: {
+                title: "Sekurak Certifications",
+                description: "A series of hands-on offensive and defensive security training sessions conducted by Sekurak experts.",
+                items: [
+                    {
+                        title: "10 DEADLY SINS OF A NETWORK ADMINISTRATOR",
+                        description: "The most often mistakes and vulnerabilities that Network Administrator can add (certificate)."
+                    },
+                    {
+                        title: "OSINT LIVE. FROM BITS OF INFORMATION TO LOCATING A SCAM NEST",
+                        description: "Practical presentation and course about what can we deduce and know about pictures, repositories and accounts (certificate)."
+                    },
+                    {
+                        title: "A HACKER'S VIEW OF FILES",
+                        description: "Hands-on labs that show what files really are and how can person hide something and how to exploit some more complicated file types (certificate)."
+                    },
+                    {
+                        title: "PROFESSION: PENTESTER. PLUS A REVIEW OF INTERESTING VULNERABILITIES DISCOVERED IN POLISH COMPANIES",
+                        description: "Shows how much of code these days is vulnerable to old techniques like SQLi or more complicated ways of classical attacks such as XSS (certificate)."
+                    },
+                    {
+                        title: "SECURITY OF WINDOWS & ACTIVE DIRECTORY",
+                        description: "Showed offensive and defensive way about how modern windows and windows server is vulnerable to old and common attacks such as \"Potatoes\" and attacks connected to physical access to device."
+                    }
+                ]
+            },
+            tryhackme: {
+                title: "TryHackMe Profile & Badges",
+                description: "Continuous learning on the TryHackMe platform, hundreds of completed rooms and earned badges.",
+                items: [
+                    "Has been a member of many THM events",
+                    "Top 4% of users in the weekly ranking",
+                    "Over 100 completed rooms",
+                    "Hash Cracker, Gold League 1st Place, Ice, Blue"
+                ]
+            }
+        };
+        // Obsługa kliknięć na kafelki certyfikatów
+// Obsługa kliknięć na kafelki certyfikatów
+document.querySelectorAll('.cert-trigger').forEach(trigger => {
+    trigger.addEventListener('click', function() {
+        const certKey = this.getAttribute('data-cert');
+        const data = certData[certKey];
+
+        document.querySelectorAll('.cert-trigger').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+
+        const detailsPanel = document.getElementById('cert-details');
+
+        if (data) {
+            let html = `
+                <h4><i class="fas fa-award"></i> ${data.title}</h4>
+                <p style="color: var(--text-muted); margin-bottom: 15px;">${data.description}</p>
+                <ul class="cert-items-list">
+            `;
+
+            data.items.forEach(item => {
+                if (typeof item === 'string') {
+                    // Zwykły string – pojedyncza pozycja listy
+                    html += `<li>${item}</li>`;
+                } else {
+                    // Obiekt z tytułem i opisem – karta wewnątrz listy
+                    html += `
+                        <li class="cert-item-card">
+                            <div class="cert-item-title">${item.title}</div>
+                            <div class="cert-item-desc">${item.description}</div>
+                        </li>
+                    `;
+                }
+            });
+
+            html += `</ul>`;
+            detailsPanel.innerHTML = html;
+            detailsPanel.style.display = 'block';
+        } else {
+            detailsPanel.style.display = 'none';
+        }
+    });
+});
     </script>
 </body>
 </html>
