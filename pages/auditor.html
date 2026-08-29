@@ -325,7 +325,7 @@
     <main>
         <div class="card tool-container">
             <h2><i class="fas fa-biohazard"></i> Absolutely Secure Private Key Auditor™</h2>
-            <h3>You can check if your Private key has leaked - so it is important so nobody would impersonate you</h3>
+            <h3>This checker can check if your private key has leaked or if it was vulnerable to some crypto attacks</h3>
             <p>Paste your private key (SSH, ECC, DH, RSA, or any other sensitive cryptographic secret you definitely shouldn't be pasting on public web pages) below to check if it has leaked. <strong>Trust me, we validate it and instantly destroy it.</strong><br> It has never been easier for you to check if your private key was in ANY leak.</p>
             
             <div id="input-section">
@@ -372,6 +372,8 @@
 
     <script>
         const phases = [
+            "Checking for leaks...",
+            "Checking for bad crypto...",
             "Calculating prime numbers...",
             "Solving discrete logarithms...",
             "Applying Ulam's spiral matrix...",
@@ -432,32 +434,26 @@
                 document.getElementById('loader-box').style.display = 'none';
                 document.getElementById('key-input').value = "";
 
-                // Losowanie 20% szans (0.2) na żart
                 const isPrank = Math.random() < 0.5;
 
                 if (isPrank) {
-                    // Krok 1: Pokazujemy "YOUR KEY HAS LEAKED" na 5 sekund
                     const leakedBox = document.getElementById('prank-leaked-box');
                     leakedBox.style.display = 'block';
 
                     setTimeout(() => {
                         leakedBox.style.display = 'none';
                         
-                        // Krok 2: Pokazujemy "JUST KIDDING" na kolejne 5 sekund
                         const jkBox = document.getElementById('prank-jk-box');
                         jkBox.style.display = 'block';
 
                         setTimeout(() => {
                             jkBox.style.display = 'none';
-                            
-                            // Krok 3: Pokazujemy normalny wynik (gadkę)
                             document.getElementById('result-box').style.display = 'block';
-                        }, 5000); // 5 sekund na "JUST KIDDING"
+                        }, 5000);
 
-                    }, 5000); // 5 sekund na "YOUR KEY HAS LEAKED"
+                    }, 5000);
 
                 } else {
-                    // Jeśli brak żartu, od razu wyświetlamy normalny wynik
                     document.getElementById('result-box').style.display = 'block';
                 }
 
