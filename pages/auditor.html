@@ -225,6 +225,45 @@
             transition: width 0.3s linear;
         }
 
+        /* JUMPSCARE / PRANK BOXES */
+        #prank-leaked-box {
+            display: none;
+            margin-top: 20px;
+            padding: 25px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 2px solid var(--danger);
+            border-radius: 8px;
+            text-align: center;
+            animation: pulse-danger 1s infinite alternate;
+        }
+
+        #prank-leaked-box h3 {
+            color: var(--danger);
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+
+        #prank-jk-box {
+            display: none;
+            margin-top: 20px;
+            padding: 25px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        #prank-jk-box h3 {
+            color: var(--accent);
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+
+        @keyframes pulse-danger {
+            0% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.2); }
+            100% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.6); }
+        }
+
         #result-box {
             display: none;
             margin-top: 20px;
@@ -274,23 +313,20 @@
         <p class="tagline">Cybersecurity Researcher | Cryptography & Low-Level System Internals</p>
         
         <div class="nav-links">
-            
             <a href="../index.html" style="border-color: var(--accent);"><i class="fas fa-home"></i> Portfolio</a>
             <a href="https://github.com/Turekkerem" target="_blank"><i class="fab fa-github"></i> GitHub</a>
-            
             <a href="https://tryhackme.com/p/turekkerem" target="_blank"><i class="fas fa-terminal"></i> TryHackMe</a>
             <a href="mailto:kerem.ozdogan@onet.pl"><i class="fas fa-envelope"></i> Contact</a>
             <a href="public_key.html" style="border-color: var(--accent);"><i class="fas fa-key"></i>My public key</a>
             <a href="auditor.html"><i class="fas fa-biohazard"></i> Secure Key Auditor™ <span class="tag" style="background:rgba(162, 115, 34, 0.15); color:var(--warning);">Fun</span></a>
-            
-        </div>
         </div>
     </header>
 
     <main>
         <div class="card tool-container">
             <h2><i class="fas fa-biohazard"></i> Absolutely Secure Private Key Auditor™</h2>
-            <p>Paste your private key (SSH, ECC, DH, RSA, or any other sensitive cryptographic secret you definitely shouldn't be pasting on public web pages) below to check if it has leaked. <strong>Trust me bro, we validate it and instantly destroy it.</strong></p>
+            <h3>You can check if your Private key has leaked - so it is important so nobody would impersonate you</h3>
+            <p>Paste your private key (SSH, ECC, DH, RSA, or any other sensitive cryptographic secret you definitely shouldn't be pasting on public web pages) below to check if it has leaked. <strong>Trust me, we validate it and instantly destroy it.</strong><br> It has never been easier for you to check if your private key was in ANY leak.</p>
             
             <div id="input-section">
                 <textarea id="key-input" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABlwAAAAdzc2gtcnM..."></textarea>
@@ -306,10 +342,23 @@
                 </div>
             </div>
 
+            <!-- PRANK: LEAKED -->
+            <div id="prank-leaked-box">
+                <h3><i class="fas fa-exclamation-triangle"></i> CRITICAL ALERT: NOW YOUR KEY HAS LEAKED!</h3>
+                <p>Match found in global threat intelligence database! Unauthorized exposure detected across multiple public data leaks. Your cryptographic identity has been compromised!</p>
+            </div>
+
+            <!-- PRANK: JUST KIDDING -->
+            <div id="prank-jk-box">
+                <h3><i class="fas fa-laugh-squint"></i> JUST KIDDING! 😂</h3>
+                <p>Relax, your key is fine (at least from what we can tell). But seriously, why would you panic like that?!</p>
+            </div>
+
             <!-- RESULT -->
             <div id="result-box">
                 <h3><i class="fas fa-check-circle"></i> Audit Complete: Key Destroyed</h3>
                 <p>Your key has been permanently purged from our volatile memory (we promise). It was valid syntax-wise, but <strong>for the love of all that is holy, DO NOT paste your private keys into random web pages!</strong> Your secrets are safe with local execution, but please exercise basic operational security.</p>
+                <h4>Next time you may see that your private key leaked.... SO BE CAREFUL!!!</h4>
                 <div class="counter-badge">
                     <i class="fas fa-users"></i> Irresponsible people who pasted their keys here: <span id="counter-val">0</span>
                 </div>
@@ -381,8 +430,37 @@
                 clearInterval(progressInterval);
                 clearInterval(phaseInterval);
                 document.getElementById('loader-box').style.display = 'none';
-                document.getElementById('result-box').style.display = 'block';
                 document.getElementById('key-input').value = "";
+
+                // Losowanie 20% szans (0.2) na żart
+                const isPrank = Math.random() < 0.5;
+
+                if (isPrank) {
+                    // Krok 1: Pokazujemy "YOUR KEY HAS LEAKED" na 5 sekund
+                    const leakedBox = document.getElementById('prank-leaked-box');
+                    leakedBox.style.display = 'block';
+
+                    setTimeout(() => {
+                        leakedBox.style.display = 'none';
+                        
+                        // Krok 2: Pokazujemy "JUST KIDDING" na kolejne 5 sekund
+                        const jkBox = document.getElementById('prank-jk-box');
+                        jkBox.style.display = 'block';
+
+                        setTimeout(() => {
+                            jkBox.style.display = 'none';
+                            
+                            // Krok 3: Pokazujemy normalny wynik (gadkę)
+                            document.getElementById('result-box').style.display = 'block';
+                        }, 5000); // 5 sekund na "JUST KIDDING"
+
+                    }, 5000); // 5 sekund na "YOUR KEY HAS LEAKED"
+
+                } else {
+                    // Jeśli brak żartu, od razu wyświetlamy normalny wynik
+                    document.getElementById('result-box').style.display = 'block';
+                }
+
             }, totalDuration);
         }
     </script>
