@@ -530,6 +530,13 @@
                     "var": { type: "dir" }
                 }
             },
+            "/etc": {
+                type: "dir",
+                contents: {
+                    "passwd": { type: "file", content: "root:x:0:0:root:/root:/bin/bash <br> kerem:x:1000:1000:Kerem Ozdogan:/home/kerem:/bin/bash" },
+                    "shadow": { type: "file", content: "root:$5$iPLw/GtXomfQLGgL$uW6STk8fgkMGFDT0UWHC25IM60h5qpl/PkYQAB8Zce1:19000:0:99999:7::: <br> kerem:$1$6orcqVB3$gRrwWXhILJb4Cj5ZhOUt2/:19000:0:99999:7:::" }
+                }
+            },
             "/home": {
                 type: "dir",
                 contents: {
@@ -539,7 +546,7 @@
             "/root": {
                 type: "dir",
                 contents: {
-                    "flag.txt": { type: "file", content: "THM{pr1v3l3g3_3sc4l4t10n_m4st3r}" }
+                    "root.txt": { type: "file", content: "THM{pr1v3l3g3_3sc4l4t10n_m4st3r}" }
                 }
             },
             "~": {
@@ -572,8 +579,9 @@
             "~/.ssh": {
                 type: "dir",
                 contents: {
-                    "id_rsa": { type: "file", content: "Nice try. My keys are protected by Windows DPAPI and stored in my head." },
-                    "id_rsa.pub": { type: "file", content: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC... kerem@portfolio" }
+                    "id_rsa": { type: "file", content: "Nice try. My keys are protected by Windows DPAPI (yeah,i know that much that even on linux DPAPI from windows protect me here) and stored in my head." },
+                    "id_rsa.pub": { type: "file", content: "ssh-rsa eW91IGNoZWNrZWQgaGVyZSB0b28/Pz8/Pz8= kerem@portfolio" },
+                    "user.txt": { type: "file",content: "flag{s0_v3ry_unusu@l_pl@ce_f0r_th3_f1ag}"}
                 }
             }
         };
@@ -689,8 +697,9 @@
                         <br>
                         <div style="color:var(--danger); font-weight: bold;">[!] CRITICAL VULNERABILITIES FOUND:</div>
                         <div> - <b>CVE-2026-CRYPTO</b>: Too heavily invested in low-level internals and cryptography.</div>
-                        <div> - <b>CVE-2026-NUTRITION</b>: Severe physical weakness detected to <span style="color:var(--success);">spinach pancakes (naleśniki ze szpinakiem)</span>.</div>
+                        <div> - <b>CVE-2026-NUTRITION</b>: Severe physical weakness detected to <span style="color:var(--success);">spinach pancakes </span>.</div>
                         <div> - <b>Privilege Escalation Vector</b>: Can be easily bribed with a good TryHackMe room.</div>
+                        <div> - <b>Favourite RCE: Eternal-Blue (i was in luck (god/bad) that my lovely Windows XP got WannaCry </div>
                         <br>
                     `;
                     output.scrollTop = output.scrollHeight;
