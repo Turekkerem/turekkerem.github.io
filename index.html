@@ -187,44 +187,75 @@
             gap: 6px;
         }
 
-        .projects-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+        .projects-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
             margin-top: 20px;
         }
 
-        .project-card {
+        .repo-row {
             background: rgba(17, 24, 39, 0.6);
             border: 1px solid var(--border-color);
-            padding: 20px;
+            padding: 20px 24px;
             border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
             transition: border-color 0.2s;
         }
 
-        .project-card:hover {
+        .repo-row:hover {
             border-color: var(--accent);
         }
 
-        .project-card h4 {
+        .repo-info h4 {
             font-size: 1.1rem;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+        }
+
+        .repo-info h4 a {
             color: var(--text-main);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .project-card p {
-            font-size: 0.9rem;
-            margin-bottom: 12px;
-        }
-
-        .tag {
-            display: inline-block;
-            background: rgba(59, 130, 246, 0.1);
+        .repo-info h4 a:hover {
             color: var(--accent);
-            font-size: 0.75rem;
-            padding: 3px 8px;
-            border-radius: 4px;
+        }
+
+        .repo-info p {
+            font-size: 0.9rem;
+            margin-bottom: 0;
+            color: var(--text-muted);
+        }
+
+        .repo-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
             font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            background: rgba(59, 130, 246, 0.1);
+            padding: 6px 12px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+
+        .repo-meta i {
+            color: var(--warning);
+        }
+
+        .loading-text {
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            text-align: center;
+            padding: 20px;
         }
 
         footer {
@@ -249,18 +280,18 @@
         
         <div class="nav-links">
             <a href="index.html" style="border-color: var(--accent);"><i class="fas fa-home"></i> Portfolio</a>
-            <a href="./pages/auditor.html"><i class="fas fa-biohazard"></i> Secure Key Auditor™ <span class="tag" style="background:rgba(245,158,11,0.15); color:var(--warning);">Fun</span></a>
             <a href="https://github.com/Turekkerem" target="_blank"><i class="fab fa-github"></i> GitHub</a>
             <a href="https://tryhackme.com/p/turekkerem" target="_blank"><i class="fas fa-terminal"></i> TryHackMe</a>
             <a href="mailto:kerem.ozdogan@onet.pl"><i class="fas fa-envelope"></i> Contact</a>
             <a href="./pages/public_key.html" style="border-color: var(--accent);"><i class="fas fa-key"></i>My public key</a>
+            <a href="./pages/auditor.html"><i class="fas fa-biohazard"></i> Secure Key Auditor™ <span class="tag" style="background:rgba(245,158,11,0.15); color:var(--warning);">Fun</span></a>
         </div>
     </header>
 
     <main>
         <div class="card">
             <h2><i class="fas fa-user-shield"></i> About Me & Background</h2>
-            <p>I am a Cybersecurity undergraduate student at AGH University of Krakow (Class of 2024/2025). My primary focus lies in low-level system internals, offensive security tooling, and the intricate world of cryptography—ranging from classical cipher limitations to modern post-quantum paradigms.</p>
+            <p>I am a Cybersecurity undergraduate student at AGH University of Krakow (Class of 2024/2025). My primary focus lies in low-level system internals, offensive security tooling, and the intricate world of cryptography - ranging from classical cipher limitations to modern post-quantum paradigms.</p>
             
             <div class="highlight-box">
                 <p><strong>Hands-on Learning:</strong> Actively solving labs and challenges on TryHackMe. Track my progress at <a href="https://tryhackme.com/p/turekkerem" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">tryhackme.com/p/turekkerem <i class="fas fa-external-link-alt" style="font-size: 0.75rem;"></i></a>.</p>
@@ -288,25 +319,11 @@
         </div>
 
         <div class="card">
-            <h2><i class="fas fa-code-branch"></i> Codebase Highlights</h2>
-            <p>Selected tools demonstrating low-level systems programming and offensive engineering mechanics:</p>
+            <h2><i class="fas fa-award"></i> Selected Repositories</h2>
+            <p>Key tools and frameworks highlighting my practical research:</p>
             
-            <div class="projects-grid">
-                <div class="project-card">
-                    <h4>Red Teaming Suite</h4>
-                    <p>Advanced system utility featuring NTFS timestomping, registry-based crypto policy downgrade, and persistence engines.</p>
-                    <span class="tag">C++ / Win32 API</span>
-                </div>
-                <div class="project-card">
-                    <h4>Ransomware Prototype</h4>
-                    <p>Educational modular hybrid encryption locker exploring file traversal patterns and secure key exchange logic.</p>
-                    <span class="tag">C / Crypto APIs</span>
-                </div>
-                <div class="project-card">
-                    <h4>Keylogger Framework</h4>
-                    <p>User-mode telemetry framework analyzing low-level keyboard hooks (`WH_KEYBOARD_LL`) and secure memory buffers.</p>
-                    <span class="tag">C++ / Internals</span>
-                </div>
+            <div id="repos-container" class="projects-list">
+                <div class="loading-text"><i class="fas fa-spinner fa-spin"></i> Loading repository details...</div>
             </div>
         </div>
     </main>
@@ -314,5 +331,42 @@
     <footer>
         <p>&copy; 2026 Turekkerem. Built with raw curiosity and low-level code.</p>
     </footer>
+
+    <script>
+        async function fetchFeaturedRepos() {
+            const username = 'Turekkerem';
+            const repoNames = ['Internal-Monologue-Attack', 'DPAPI-Abuser-PoC', 'Veneronica'];
+            const container = document.getElementById('repos-container');
+            container.innerHTML = '';
+
+            for (const name of repoNames) {
+                try {
+                    const response = await fetch(`https://api.github.com/repos/${username}/${name}`);
+                    if (!response.ok) continue;
+                    
+                    const repo = await response.json();
+                    const description = repo.description ? repo.description : 'No description provided.';
+
+                    const repoRow = document.createElement('div');
+                    repoRow.className = 'repo-row';
+                    repoRow.innerHTML = `
+                        <div class="repo-info">
+                            <h4><a href="${repo.html_url}" target="_blank"><i class="fab fa-github" style="color: var(--accent);"></i> ${repo.name}</a></h4>
+                            <p>${description}</p>
+                        </div>
+                        <div class="repo-meta">
+                            <i class="fas fa-star"></i> ${repo.stargazers_count}
+                        </div>
+                    `;
+                    container.appendChild(repoRow);
+
+                } catch (error) {
+                    console.error(`Error loading repository ${name}:`, error);
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchFeaturedRepos);
+    </script>
 </body>
 </html>
