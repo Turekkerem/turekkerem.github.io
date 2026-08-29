@@ -361,6 +361,7 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            overflow-x: hidden;
         }
 
         .terminal-input-line {
@@ -673,42 +674,414 @@
         }
 
         function triggerLinpeas() {
+    const output = document.getElementById('terminal-output');
+    const textbox = document.getElementById('terminal-textbox');
+    
+    textbox.disabled = true;
+    const textToJumble = "exploring and finding vulnerabilities...";
+    let iter = 0;
+    
+    const linpeasDiv = document.createElement('div');
+    output.appendChild(linpeasDiv);
+    output.scrollTop = output.scrollHeight;
+
+    const jumbleInt = setInterval(() => {
+        let jumbled = textToJumble.split('').map(c => Math.random() > 0.5 ? c.toUpperCase() : c.toLowerCase()).join('');
+        linpeasDiv.innerHTML = `<span style="color:var(--warning);">[+] ${jumbled}</span>`;
+        iter++;
+        
+        if (iter > 18) {
+            clearInterval(jumbleInt);
+            linpeasDiv.innerHTML = `<span style="color:var(--success);">[+] Exploring and finding vulnerabilities... DONE.</span>`;
+            
+            // Funkcja pomocnicza do dodawania z opóźnieniem
+            const appendWithDelay = (html, delay) => {
+                setTimeout(() => {
+                    output.innerHTML += html;
+                    output.scrollTop = output.scrollHeight;
+                }, delay);
+            };
+
+            // Sekcja informacji o systemie – pojawia się po 500 ms
+            const systemInfo = `
+                <div style="margin-top: 15px; padding: 15px; background: rgba(59,130,246,0.05); border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0;">
+                    <div style="font-weight: bold; color: var(--accent); margin-bottom: 8px;">
+                        <i class="fas fa-info-circle"></i> SYSTEM INFORMATION
+                    </div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-main);">
+                        <div>OS: Linux portfolio 6.8.0-52-generic #53-Ubuntu SMP PREEMPT_DYNAMIC x86_64</div>
+                        <div>User: kerem (uid=1000, gid=1000, groups=1000,27(sudo))</div>
+                        <div>Kernel: 6.8.0-52-generic</div>
+                        <div>Hostname: portfolio</div>
+                        <div>Uptime: 3 days, 7 hours, 12 minutes</div>
+                        <div>SELinux: disabled</div>
+                        <div>CPU: Intel(R) Core(TM) i7-13700K @ 5.4GHz</div>
+                        <div>Memory: 32GB DDR5</div>
+                        <div>Disk: /dev/nvme0n1p2 250GB (68% used)</div>
+                    </div>
+                </div>
+            `;
+            appendWithDelay(systemInfo, 500);
+
+            // Nagłówek podatności – po 1500 ms
+            const vulnHeader = `
+                <div style="margin-top: 20px;">
+                    <div style="font-weight: bold; color: var(--danger); margin-bottom: 10px;">
+                        <i class="fas fa-exclamation-triangle"></i> CRITICAL VULNERABILITIES FOUND
+                    </div>
+            `;
+            appendWithDelay(vulnHeader, 1500);
+
+            // Kolejne podatności – każda z większym opóźnieniem
+            const vulnerabilities = [
+                {
+                    cve: "CVE-2026-CRYPTO",
+                    desc: "Too heavily invested in low-level internals and cryptography.",
+                    color: "danger",
+                    delay: 2000
+                },
+                {
+                    cve: "CVE-2026-NUTRITION",
+                    desc: 'Severe physical weakness detected to <span style="color:var(--success);">spinach pancakes</span>.',
+                    color: "danger",
+                    delay: 2800
+                },
+                {
+                    cve: "Privilege Escalation Vector",
+                    desc: "Can be easily bribed with a good TryHackMe room.",
+                    color: "warning",
+                    delay: 3600
+                },
+                {
+                    cve: "Favourite RCE",
+                    desc: "Eternal-Blue (i was in luck (god/bad) that my lovely Windows XP got WannaCry)",
+                    color: "danger",
+                    delay: 4400
+                }
+            ];
+
+            vulnerabilities.forEach(v => {
+                const borderColor = v.color === "danger" ? "rgba(239,68,68,0.3)" : "rgba(245,158,11,0.3)";
+                const bgColor = v.color === "danger" ? "rgba(239,68,68,0.08)" : "rgba(245,158,11,0.08)";
+                const textColor = v.color === "danger" ? "var(--danger)" : "var(--warning)";
+                
+                const vulnHtml = `
+                    <div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px;">
+                        <div style="font-weight: 600; color: ${textColor}; margin-bottom: 4px;">${v.cve}</div>
+                        <div style="color: var(--text-muted); font-size: 0.9rem;">${v.desc}</div>
+                    </div>
+                `;
+                appendWithDelay(vulnHtml, v.delay);
+            });
+
+            // Zamknięcie kontenera i przywrócenie pola – po ostatniej podatności + 800 ms
+            appendWithDelay('</div>', 5200);
+            setTimeout(() => {
+                textbox.disabled = false;
+                textbox.focus();
+            }, 5300);
+        }
+    }, 100);
+}
+        function triggerSl() {
             const output = document.getElementById('terminal-output');
             const textbox = document.getElementById('terminal-textbox');
-            
             textbox.disabled = true;
-            const textToJumble = "exploring and finding vulnerabilities...";
-            let iter = 0;
-            
-            const linpeasDiv = document.createElement('div');
-            output.appendChild(linpeasDiv);
-            output.scrollTop = output.scrollHeight;
 
-            const jumbleInt = setInterval(() => {
-                let jumbled = textToJumble.split('').map(c => Math.random() > 0.5 ? c.toUpperCase() : c.toLowerCase()).join('');
-                linpeasDiv.innerHTML = `<span style="color:var(--warning);">[+] ${jumbled}</span>`;
-                iter++;
-                
-                if(iter > 18) {
-                    clearInterval(jumbleInt);
-                    linpeasDiv.innerHTML = `<span style="color:var(--success);">[+] Exploring and finding vulnerabilities... DONE.</span>`;
-                    
-                    output.innerHTML += `
-                        <br>
-                        <div style="color:var(--danger); font-weight: bold;">[!] CRITICAL VULNERABILITIES FOUND:</div>
-                        <div> - <b>CVE-2026-CRYPTO</b>: Too heavily invested in low-level internals and cryptography.</div>
-                        <div> - <b>CVE-2026-NUTRITION</b>: Severe physical weakness detected to <span style="color:var(--success);">spinach pancakes </span>.</div>
-                        <div> - <b>Privilege Escalation Vector</b>: Can be easily bribed with a good TryHackMe room.</div>
-                        <div> - <b>Favourite RCE: Eternal-Blue (i was in luck (god/bad) that my lovely Windows XP got WannaCry </div>
-                        <br>
-                    `;
-                    output.scrollTop = output.scrollHeight;
-                    textbox.disabled = false;
-                    textbox.focus();
+            const asciiArt = [
+                "      ====        ________                ___________ ",
+                "  _D _|  |_______/        \\__I_I_____===__|_________| ",
+                "   |(_)---  |   H\\________/ |   |        |  |  ___  | ",
+                "   /     |  |   H  |  |     |   |        |  |  | |  | ",
+                "  |      |  |   H  |__|----|   |        |  |  |_|__| ",
+                "  | ________|___H__/__|_____|   |        |  |_______| ",
+                "  |/    _______|____________|___|________|__|________|"
+            ];
+
+            let offset = 0;
+            const maxOffset = 90; // zwiększone, aby cała lokomotywa zjechała z ekranu
+            const intervalTime = 80; // lekko przyspieszone dla płynności
+
+            const interval = setInterval(() => {
+                const oldFrame = document.getElementById('sl-frame');
+                if (oldFrame) oldFrame.remove();
+
+                const spaces = ' '.repeat(offset);
+                const frameDiv = document.createElement('div');
+                frameDiv.id = 'sl-frame';
+                frameDiv.style.whiteSpace = 'pre';
+                frameDiv.style.color = 'var(--warning)';
+                frameDiv.textContent = asciiArt.map(line => spaces + line).join('\n');
+                output.appendChild(frameDiv);
+                output.scrollTop = output.scrollHeight;
+
+                offset++;
+                if (offset > maxOffset) {
+                    clearInterval(interval);
+                    frameDiv.style.color = 'var(--success)';
+                    setTimeout(() => {
+                        const lastFrame = document.getElementById('sl-frame');
+                        if (lastFrame) lastFrame.remove();
+                        textbox.disabled = false;
+                        textbox.focus();
+                    }, 1000);
                 }
-            }, 100);
+            }, intervalTime);
         }
+        function randomHex(length) {
+            const chars = '0123456789abcdef';
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                result += chars[Math.floor(Math.random() * 16)];
+            }
+            return result;
+        }
+        function generateRandomArt(keyType, bits) {
+            const width = 17; // szerokość wewnętrzna (bez ramki)
+            const height = 9; // wysokość wewnętrzna
+            const chars = " .o+=*BOX@%&#/^";
+            let art = `+---[${keyType.toUpperCase()} ${bits}]---+\n`;
+            for (let y = 0; y < height; y++) {
+                art += "|";
+                for (let x = 0; x < width; x++) {
+                    art += chars[Math.floor(Math.random() * chars.length)];
+                }
+                art += "|\n";
+            }
+            art += `+----[SHA256]-----+`;
+            return art;
+        }
+        function formatPem(data, lineLength) {
+            const lines = [];
+            for (let i = 0; i < data.length; i += lineLength) {
+                lines.push(data.slice(i, i + lineLength));
+            }
+            return lines.join('\n');
+        }
+        function triggerSshKeygen(args) {
+            const output = document.getElementById('terminal-output');
+            const textbox = document.getElementById('terminal-textbox');
 
+            // Sprawdź, czy jest flaga -l (wyświetl fingerprint)
+            if (args.includes('-l')) {
+                const sshDir = vfs['~/.ssh'];
+                if (sshDir && sshDir.contents) {
+                    // Znajdź pierwszy plik .pub
+                    const pubFile = Object.keys(sshDir.contents).find(name => name.endsWith('.pub'));
+                    if (pubFile) {
+                        const pubContent = sshDir.contents[pubFile].content;
+                        const parts = pubContent.split(' ');
+                        const fingerprint = randomHex(16).match(/.{2}/g).join(':');
+                        output.innerHTML += `<div>${parts[0]} ${parts[1]} SHA256:${fingerprint} ${parts[2] || ''}</div>`;
+                    } else {
+                        output.innerHTML += `<div>ssh-keygen: No public keys found in ~/.ssh</div>`;
+                    }
+                } else {
+                    output.innerHTML += `<div>ssh-keygen: No such file or directory</div>`;
+                }
+                output.scrollTop = output.scrollHeight;
+                return;
+            }
+
+            // Określ typ klucza
+            let keyType = 'ed25519';
+            let bits = 256;
+            const typeIndex = args.indexOf('-t');
+            if (typeIndex !== -1 && args[typeIndex + 1]) {
+                const typeArg = args[typeIndex + 1].toLowerCase();
+                if (typeArg === 'rsa') {
+                    keyType = 'rsa';
+                    bits = 3072; // domyślnie dla RSA
+                    // ewentualnie sprawdź -b
+                    const bitsIndex = args.indexOf('-b');
+                    if (bitsIndex !== -1 && args[bitsIndex + 1]) {
+                        const requestedBits = parseInt(args[bitsIndex + 1]);
+                        if (!isNaN(requestedBits) && requestedBits >= 1024 && requestedBits <= 16384) {
+                            bits = requestedBits;
+                        }
+                    }
+                } else if (typeArg === 'ed25519') {
+                    keyType = 'ed25519';
+                    bits = 256;
+                } else {
+                    output.innerHTML += `<div>ssh-keygen: unknown key type ${typeArg}</div>`;
+                    output.scrollTop = output.scrollHeight;
+                    return;
+                }
+            }
+
+            textbox.disabled = true;
+            output.innerHTML += `<div>Generating public/private ${keyType} key pair.</div>`;
+
+            const privateFile = keyType === 'rsa' ? 'id_rsa' : 'id_ed25519';
+            const publicFile = privateFile + '.pub';
+
+            // Symulacja pytań (pomijamy interakcję, przyjmujemy domyślne)
+            const defaultPath = `~/.ssh/${privateFile}`;
+            output.innerHTML += `<div>Enter file in which to save the key (${defaultPath}): </div>`;
+            output.innerHTML += `<div>Created directory '~/.ssh'.</div>`;
+            output.innerHTML += `<div>Enter passphrase (empty for no passphrase): </div>`;
+            output.innerHTML += `<div>Enter same passphrase again: </div>`;
+
+            // Generowanie zawartości kluczy
+            let privateKey, publicKey;
+            if (keyType === 'rsa') {
+                const privateData = randomHex(256); // 256 znaków hex
+                privateKey = `-----BEGIN OPENSSH PRIVATE KEY-----\n${formatPem(privateData, 64)}\n-----END OPENSSH PRIVATE KEY-----`;
+                publicKey = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQ${randomHex(64)} kerem@portfolio`;
+            
+            }else { // ed25519
+                const privateData = randomHex(96); // 96 znaków hex
+                privateKey = `-----BEGIN OPENSSH PRIVATE KEY-----\n${formatPem(privateData, 64)}\n-----END OPENSSH PRIVATE KEY-----`;
+                publicKey = `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA${randomHex(16)} kerem@portfolio`;
+            }
+
+            // Zapis do VFS
+            if (!vfs['~/.ssh']) {
+                vfs['~/.ssh'] = { type: 'dir', contents: {} };
+            }
+            vfs['~/.ssh'].contents[privateFile] = { type: 'file', content: privateKey };
+            vfs['~/.ssh'].contents[publicFile] = { type: 'file', content: publicKey };
+
+            // Fingerprint
+            const fingerprint = randomHex(16).match(/.{2}/g).join(':');
+
+            // Randomart
+            const randomArt = generateRandomArt(keyType, bits);
+
+            // Podsumowanie
+            output.innerHTML += `
+                <br>
+                <div style="color:var(--success);">Your identification has been saved in ${defaultPath}</div>
+                <div>Your public key has been saved in ${defaultPath}.pub</div>
+                <div>The key fingerprint is:</div>
+                <div style="color:var(--warning);">SHA256:${fingerprint} kerem@portfolio</div>
+                <div>The key's randomart image is:</div>
+                <pre style="color:var(--text-main); font-size:0.8rem; line-height:1.2;">${randomArt}</pre>
+                <br>
+            `;
+            output.scrollTop = output.scrollHeight;
+            textbox.disabled = false;
+            textbox.focus();
+        }
+        function formatContent(text) {
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+        }
+        function startSnakeGame() {
+            const output = document.getElementById('terminal-output');
+            const textbox = document.getElementById('terminal-textbox');
+            textbox.disabled = true;
+
+            // Usuń starą grę, jeśli istnieje
+            const oldGame = document.getElementById('snake-game');
+            if (oldGame) oldGame.remove();
+
+            // Kontener gry
+            const gameContainer = document.createElement('div');
+            gameContainer.id = 'snake-game';
+            gameContainer.style.fontFamily = 'monospace';
+            gameContainer.style.whiteSpace = 'pre';
+            gameContainer.style.fontSize = '16px';
+            gameContainer.style.lineHeight = '1';
+            output.appendChild(gameContainer);
+
+            const boardWidth = 20;
+            const boardHeight = 20;
+            let snake = [{ x: 10, y: 10 }];
+            let direction = { x: 1, y: 0 };
+            let food = spawnFood();
+            let score = 0;
+            let gameOver = false;
+            let gameInterval;
+
+            function spawnFood() {
+                let pos;
+                do {
+                    pos = {
+                        x: Math.floor(Math.random() * boardWidth),
+                        y: Math.floor(Math.random() * boardHeight)
+                    };
+                } while (snake.some(seg => seg.x === pos.x && seg.y === pos.y));
+                return pos;
+            }
+
+            function drawBoard() {
+                let board = '';
+                for (let y = 0; y < boardHeight; y++) {
+                    for (let x = 0; x < boardWidth; x++) {
+                        if (snake.some(seg => seg.x === x && seg.y === y)) {
+                            board += (snake[0].x === x && snake[0].y === y) ? 'O' : '#';
+                        } else if (food.x === x && food.y === y) {
+                            board += '*';
+                        } else {
+                            board += '.';
+                        }
+                    }
+                    board += '\n';
+                }
+                gameContainer.textContent = board;
+                output.scrollTop = output.scrollHeight;
+            }
+
+            function updateGame() {
+                if (gameOver) return;
+
+                const newHead = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
+
+                // Kolizja ze ścianą
+                if (newHead.x < 0 || newHead.x >= boardWidth || newHead.y < 0 || newHead.y >= boardHeight) {
+                    endGame();
+                    return;
+                }
+
+                // Kolizja z samym sobą
+                if (snake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
+                    endGame();
+                    return;
+                }
+
+                snake.unshift(newHead);
+
+                if (newHead.x === food.x && newHead.y === food.y) {
+                    score++;
+                    food = spawnFood();
+                } else {
+                    snake.pop();
+                }
+
+                drawBoard();
+            }
+
+            function endGame() {
+                gameOver = true;
+                clearInterval(gameInterval);
+                window.removeEventListener('keydown', handleKey);
+                gameContainer.textContent += `\nGame Over! Score: ${score}`;
+                textbox.disabled = false;
+                textbox.focus();
+            }
+
+            function handleKey(e) {
+                if (gameOver) return;
+                const key = e.key;
+                if (key.startsWith('Arrow')) {
+                    e.preventDefault(); // zapobiega przewijaniu strony
+                }
+                if (key === 'ArrowUp' && direction.y === 0) {
+                    direction = { x: 0, y: -1 };
+                } else if (key === 'ArrowDown' && direction.y === 0) {
+                    direction = { x: 0, y: 1 };
+                } else if (key === 'ArrowLeft' && direction.x === 0) {
+                    direction = { x: -1, y: 0 };
+                } else if (key === 'ArrowRight' && direction.x === 0) {
+                    direction = { x: 1, y: 0 };
+                }
+            }
+
+            window.addEventListener('keydown', handleKey);
+            gameInterval = setInterval(updateGame, 150);
+            drawBoard();
+}
         function triggerSatanicCrash() {
             const output = document.getElementById('terminal-output');
             const textbox = document.getElementById('terminal-textbox');
@@ -938,15 +1311,15 @@
                                 if (restricted.includes(fileName) && activeUser !== 'root' && !isSudo) {
                                     output.innerHTML += `<div style="color:var(--danger);">cat: ${targetArg}: Permission denied</div>`;
                                 } else if (fileName === 'id_rsa' && (activeUser === 'root' || isSudo)) {
-                                    output.innerHTML += `<div style="color:var(--danger);">${item.content}</div>`;
+                                    output.innerHTML += `<div style="color:var(--danger);">${formatContent(item.content)}</div>`;
                                 } else if (fileName === 'flag.txt' && (activeUser === 'root' || isSudo)) {
                                     output.innerHTML += `<div style="color:var(--success); font-weight: bold;">${item.content}</div>`;
                                 } else {
-                                    output.innerHTML += `<div>${item.content}</div>`;
+                                    output.innerHTML += `<div>${formatContent(item.content)}</div>`;
                                 }
                             }
                         } else {
-                            output.innerHTML += `<div>cat: ${targetArg}: No such file or directory</div>`;
+                            output.innerHTML += `<div>${formatContent(item.content)}</div>`;
                         }
                     }
 
@@ -960,6 +1333,8 @@
                         <br> - <b>cat [file]</b> : read file content
                         <br> - <b>chmod +x [file]</b> : make file executable
                         <br> - <b>clear</b> : clear terminal buffer
+                        <br> - <b>ssh-keygen [-t rsa|ed25519] [-b bits] [-l]</b> : generate SSH key pair or list fingerprint (fake of course)
+                        <br> - <b>snake : snake game lol
                         <br> - <b>exit</b> : close SSH session
                     </div>`;
                 } else if (cmd === 'clear') {
@@ -968,7 +1343,14 @@
                     closeTerminal();
                 } else if (isSudo) {
                     output.innerHTML += `<div>sudo: executing ${cmd} as root... done.</div>`;
-                } else {
+                } else if (cmd === 'sl') {
+                    triggerSl();
+                } else if (cmd === 'ssh-keygen') {
+                    triggerSshKeygen(args.slice(1)); // args bez samego 'ssh-keygen'
+                } else if (cmd === "snake")
+                {
+                    startSnakeGame();
+                }else {
                     output.innerHTML += `<div style="color: var(--danger);">bash: ${cmd}: command not found. Type 'help' for options.</div>`;
                 }
 
