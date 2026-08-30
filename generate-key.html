@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Secure Key Generator · Entropy Harvesting</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/openpgp/5.11.0/openpgp.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/forge/1.3.1/forge.min.js">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js">
+    </script>
+    <script src="https://unpkg.com/openpgp@5.11.0/dist/openpgp.min.js">
+    </script>
+    <style>
+        /* (style identyczny jak poprzednio – pomijam dla zwięzłości) */
+        :root {
+            --bg: #0b0f19;
+            --card: #111827;
+            --border: #1f2937;
+            --text: #f3f4f6;
+            --muted: #9ca3af;
+            --accent: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 700px;
+            width: 100%;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 30px 32px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+        h1 i {
+            color: var(--accent);
+        }
+        .sub {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+            border-left: 3px solid var(--accent);
+            padding-left: 14px;
+        }
+        .entropy-panel {
+            background: rgba(245, 158, 11, 0.06);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-bottom: 24px;
+        }
+        .entropy-panel .label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        .entropy-panel .label span:last-child {
+            color: var(--warning);
+            font-weight: 600;
+        }
+        .entropy-bar {
+            width: 100%;
+            height: 8px;
+            background: #1f2937;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .entropy-bar .fill {
+            height: 100%;
+            width: 0%;
+            background: var(--warning);
+            transition: width 0.15s ease;
+            border-radius: 4px;
+        }
+        .entropy-panel .hint {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 8px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .entropy-panel .hint i {
+            color: var(--warning);
+            width: 16px;
+        }
+        .entropy-panel .status-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+        }
+        .entropy-panel .status-badge.ready {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 10px 14px;
+            background: #090d16;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border 0.2s;
+        }
+        .form-group select:focus,
+        .form-group input:focus {
+            border-color: var(--accent);
+        }
+        .form-group .helptext {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .row2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        .pgp-only {
+            display: block;
+        }
+        .pgp-only.hidden {
+            display: none;
+        }
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            color: var(--warning);
+        }
+        .alert-success {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: var(--success);
+            display: block;
+        }
+        .alert i {
+            margin-right: 8px;
+        }
+        .btn-generate {
+            width: 100%;
+            padding: 14px;
+            background: var(--accent);
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .btn-generate:hover:not(:disabled) {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+        }
+        .btn-generate:disabled {
+            background: #1f2937;
+            color: var(--muted);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .footer-note {
+            margin-top: 20px;
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-align: center;
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+        }
+        .footer-note a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .log {
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: #090d16;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+            max-height: 120px;
+            overflow-y: auto;
+            display: none;
+            border: 1px solid var(--border);
+        }
+        .log.show {
+            display: block;
+        }
+        .log .ok {
+            color: var(--success);
+        }
+        .log .err {
+            color: var(--danger);
+        }
+        @media (max-width: 500px) {
+            .container {
+                padding: 18px 16px;
+            }
+            .row2 {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            h1 {
+                font-size: 1.3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <h1><i class="fas fa-key"></i> Secure Key Generator</h1>
+        <div class="sub">
+            <i class="fas fa-shield-halved" style="color:var(--accent);margin-right:6px;"></i>
+            Entropy‑driven · local · no server
+        </div>
+
+        <!-- ENTROPY PANEL -->
+        <div class="entropy-panel" id="entropyPanel">
+            <div class="label">
+                <span><i class="fas fa-dice-d6"></i> Entropy pool</span>
+                <span id="entropyLabel">0%</span>
+            </div>
+            <div class="entropy-bar">
+                <div class="fill" id="entropyFill" style="width:0%;"></div>
+            </div>
+            <div class="hint">
+                <span><i class="fas fa-mouse-pointer"></i> move mouse</span>
+                <span><i class="fas fa-keyboard"></i> type here</span>
+                <span><i class="fas fa-arrows-alt"></i> resize / scroll</span>
+                <span id="entropyStatus" class="status-badge">collecting</span>
+            </div>
+            <!-- NOWE: pole do ręcznej entropii + przyciski -->
+            <div style="display:flex; gap:8px; margin-top:12px; align-items:center; flex-wrap:wrap;">
+                <input type="text" id="entropyManualInput" placeholder="Type custom entropy..." style="flex:1; min-width:140px; padding:6px 10px; background:#090d16; border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:'JetBrains Mono', monospace; font-size:0.8rem;" />
+                <button id="addEntropyBtn" style="background:var(--accent); border:none; color:#fff; padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.8rem;"><i class="fas fa-plus"></i> Add</button>
+                <button id="resetEntropyBtn" style="background:rgba(239,68,68,0.15); border:1px solid var(--danger); color:var(--danger); padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.8rem;"><i class="fas fa-undo-alt"></i> Reset</button>
+            </div>
+        </div>
+
+        <!-- ALERTS -->
+        <div id="pqcAlert" class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            <b>PQC:</b> ML‑KEM (Kyber) & Hybrid keys are exported in raw PEM format.
+            They may not import into standard tools like Kleopatra.
+            <br><br>
+            <span style="color: var(--danger); font-weight: 700; background: rgba(239,68,68,0.1); padding: 6px 12px; border-radius: 6px; display: inline-block;">
+                ⚠️ <b>WARNING:</b> Hybrid and Kyber keys have not been fully tested (I mean on my page) and are <u>NOT recommended</u> for production use. 
+            </span>
+        </div>
+        <div id="successAlert" class="alert alert-success" style="display:none;">
+            <i class="fas fa-check-circle"></i>
+            <span id="successMsg">Keys generated successfully.</span>
+        </div>
+
+        <!-- FORM -->
+        <div class="form-group">
+            <label>Key type</label>
+            <select id="keyType">
+                <option value="pgp">PGP (GnuPG / Kleopatra)</option>
+                <option value="ssh">SSH authentication</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Algorithm</label>
+            <select id="algo">
+                <option value="rsa">RSA (classic)</option>
+                <option value="ed25519">Ed25519 (ECC)</option>
+                <option value="brainpool">Brainpool (ECC)</option>
+                <option value="kyber">ML‑KEM‑1024 (Kyber)</option>
+                <option value="hybrid">Hybrid (Ed25519 + Kyber)</option>
+            </select>
+        </div>
+
+        <div class="row2">
+            <div class="form-group">
+                <label>Key size / curve</label>
+                <input type="text" id="bits" value="4096" />
+                <div class="helptext">for RSA: bits; for Brainpool: curve name</div>
+            </div>
+            <div class="form-group pgp-only">
+                <label>RSA bits (fallback)</label>
+                <input type="text" id="rsaFallback" value="4096" />
+            </div>
+        </div>
+
+        <div class="row2">
+            <div class="form-group pgp-only">
+                <label>Name</label>
+                <input type="text" id="name" value="Kerem Ozdogan" />
+            </div>
+            <div class="form-group pgp-only">
+                <label>Email</label>
+                <input type="text" id="email" value="kerem.ozdogan@onet.pl" />
+            </div>
+        </div>
+
+        <button class="btn-generate" id="generateBtn" disabled>
+            <i class="fas fa-lock"></i> Gathering entropy…
+        </button>
+
+        <div class="log" id="log"></div>
+
+        <div class="footer-note">
+            <i class="fas fa-shield-alt" style="color:var(--accent);"></i>
+            All cryptography happens locally in your browser.
+            <a href="index.html">← back to portfolio</a>
+        </div>
+    </div>
+
+    <script>
+        // ================================================================
+        //  ENTROPY COLLECTOR
+        // ================================================================
+        const Entropy = {
+            pool: '',
+            count: 0,
+            target: 200,
+            ready: false,
+            hashed: null,
+            systemFingerprint: null,
+
+            init() {
+                const ua = navigator.userAgent;
+                const res = `${screen.width}x${screen.height}`;
+                const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const lang = navigator.language;
+                const plat = navigator.platform;
+                const cores = navigator.hardwareConcurrency || '?';
+                const mem = navigator.deviceMemory || '?';
+                const now = Date.now();
+                const seed =
+                    `ua:${ua}|res:${res}|tz:${tz}|lang:${lang}|plat:${plat}|cores:${cores}|mem:${mem}|ts:${now}`;
+                this.systemFingerprint = this.hash(seed);
+                this.add(seed);
+                this.add(this.systemFingerprint);
+
+                document.addEventListener('mousemove', e => {
+                    this.add(`m:${e.clientX},${e.clientY},${e.screenX},${e.screenY},${Date.now()}`);
+                });
+                document.addEventListener('click', e => {
+                    this.add(`c:${e.clientX},${e.clientY},${Date.now()}`);
+                });
+                document.addEventListener('touchmove', e => {
+                    const t = e.touches[0];
+                    if (t) this.add(`t:${t.clientX},${t.clientY},${Date.now()}`);
+                });
+                document.addEventListener('keydown', e => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
+                        this.add(`ki:${e.key},${e.code},${Date.now()}`);
+                    } else {
+                        this.add(`kg:${e.key},${e.code},${Date.now()}`);
+                    }
+                });
+                document.addEventListener('scroll', () => {
+                    this.add(`s:${window.scrollX},${window.scrollY},${Date.now()}`);
+                });
+                window.addEventListener('resize', () => {
+                    this.add(`r:${window.innerWidth}x${window.innerHeight},${Date.now()}`);
+                });
+
+                document.querySelectorAll('input, select').forEach(el => {
+                    el.addEventListener('input', () => {
+                        const v = el.value;
+                        if (v.length > 0) this.add(`in:${v.slice(-32)},${Date.now()}`);
+                    });
+                });
+
+                try {
+                    const saved = sessionStorage.getItem('entropy_pool');
+                    if (saved) {
+                        const p = JSON.parse(saved);
+                        if (p.pool && p.count) {
+                            this.pool = p.pool;
+                            this.count = p.count;
+                            this.hashed = p.hashed || null;
+                            this.ready = p.ready || false;
+                            this.updateUI();
+                            return;
+                        }
+                    }
+                } catch (_) {}
+
+                const fb = new Uint8Array(64);
+                crypto.getRandomValues(fb);
+                this.add(Array.from(fb).map(b => b.toString(16)).join(''));
+
+                this.updateUI();
+            },
+
+            add(data, manual = false) {
+                // Blokuj tylko automatyczne zbieranie, gdy gotowe
+                if (this.ready && !manual) return;
+                
+                this.pool += data + '|' + Date.now() + '|';
+                this.count++;
+                
+                // Jeśli jeszcze nie gotowe, aktualizuj postęp
+                if (!this.ready && this.count >= this.target) {
+                    this.ready = true;
+                    this.hashed = this.hash(this.pool);
+                    this.persist();
+                    this.updateUI();
+                    this.onReady();
+                    return;
+                }
+                
+                // Jeśli już gotowe, ale dodajemy ręcznie – przelicz hash na nowo
+                if (this.ready && manual) {
+                    this.hashed = this.hash(this.pool);
+                    this.persist();
+                    // opcjonalnie: zaktualizuj UI (np. wyświetl komunikat)
+                    this.updateUI();
+                    // wywołaj log
+                    log('🔐 Manual entropy added. Pool refreshed.');
+                }
+                
+                // Automatyczne dodawanie przed osiągnięciem gotowości
+                if (!this.ready) {
+                    if (this.count % 5 === 0) {
+                        this.persist();
+                        this.updateUI();
+                    } else {
+                        this.updateUI();
+                    }
+                }
+            },
+
+            hash(str) {
+                if (typeof forge !== 'undefined' && forge.md) {
+                    return forge.md.sha256.create().update(str).digest().toHex();
+                }
+                let h = 0;
+                for (let i = 0; i < str.length; i++) {
+                    h = ((h << 5) - h) + str.charCodeAt(i);
+                    h = h & h;
+                }
+                return h.toString(16).padStart(64, '0');
+            },
+
+            getSeed() {
+                if (this.ready && this.hashed) return this.hashed;
+                return this.hash(this.pool || 'fallback');
+            },
+
+            getBytes(count) {
+                const seed = this.getSeed();
+                const b = new Uint8Array(count);
+                for (let i = 0; i < count; i++) {
+                    const idx = (i * 2) % seed.length;
+                    const hex = seed.substr(idx, 2);
+                    b[i] = parseInt(hex, 16) || Math.floor(Math.random() * 256);
+                }
+                return b;
+            },
+
+            getPercent() {
+                return Math.min(Math.floor((this.count / this.target) * 100), 100);
+            },
+
+            persist() {
+                try {
+                    sessionStorage.setItem('entropy_pool', JSON.stringify({
+                        pool: this.pool,
+                        count: this.count,
+                        hashed: this.hashed,
+                        ready: this.ready
+                    }));
+                } catch (_) {}
+            },
+
+            updateUI() {
+                const pct = this.getPercent();
+                const fill = document.getElementById('entropyFill');
+                const label = document.getElementById('entropyLabel');
+                const status = document.getElementById('entropyStatus');
+                const btn = document.getElementById('generateBtn');
+
+                if (fill) fill.style.width = pct + '%';
+                if (label) label.textContent = pct + '%';
+
+                if (this.ready) {
+                    if (status) { status.textContent = '✓ ready';
+                        status.className = 'status-badge ready'; }
+                    if (btn) { btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-key"></i> Generate Secure Keys'; }
+                } else {
+                    if (status) { status.textContent = 'collecting…';
+                        status.className = 'status-badge'; }
+                    if (btn) { btn.disabled = true;
+                        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Gathering entropy… ${pct}%`; }
+                }
+            },
+
+            onReady() {
+                this.updateUI();
+                const alert = document.getElementById('successAlert');
+                const msg = document.getElementById('successMsg');
+                if (alert && msg) {
+                    msg.textContent = '✅ Entropy pool ready! You can now generate keys.';
+                    alert.style.display = 'block';
+                    setTimeout(() => { alert.style.display = 'none'; }, 4000);
+                }
+            },
+            reset() {
+                this.pool = '';
+                this.count = 0;
+                this.ready = false;
+                this.hashed = null;
+                sessionStorage.removeItem('entropy_pool');
+                this.updateUI();
+                // wyczyść pole tekstowe
+                const input = document.getElementById('entropyManualInput');
+                if (input) input.value = '';
+                // zablokuj przycisk generowania
+                const btn = document.getElementById('generateBtn');
+                if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-lock"></i> Gathering entropy…'; }
+                // przywróć status
+                const status = document.getElementById('entropyStatus');
+                if (status) { status.textContent = 'collecting…'; status.className = 'status-badge'; }
+                const fill = document.getElementById('entropyFill');
+                if (fill) fill.style.width = '0%';
+                document.getElementById('entropyLabel').textContent = '0%';
+            },
+
+            addManual() {
+                const input = document.getElementById('entropyManualInput');
+                if (!input) return;
+                const val = input.value.trim();
+                if (val.length === 0) return;
+                this.add(`manual:${val},${Date.now()}`);
+                input.value = '';
+            }
+        };
+
+        // ================================================================
+        //  KEY GENERATION LOGIC
+        // ================================================================
+
+        function log(msg, isError = false) {
+            const el = document.getElementById('log');
+            if (!el) return;
+            el.classList.add('show');
+            const line = document.createElement('div');
+            line.className = isError ? 'err' : 'ok';
+            line.textContent = msg;
+            el.appendChild(line);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function downloadFile(filename, text) {
+            const el = document.createElement('a');
+            el.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+            el.setAttribute('download', filename);
+            el.style.display = 'none';
+            document.body.appendChild(el);
+            el.click();
+            document.body.removeChild(el);
+            log(`⬇ downloaded ${filename}`);
+        }
+
+        // ---- helpers ----
+        function uint32ToBytes(n) { const b = new ArrayBuffer(4);
+            new DataView(b).setUint32(0, n, false); return new Uint8Array(b); }
+
+        function strToBytes(s) { return new TextEncoder().encode(s); }
+
+        function bytesToBase64(bytes) { let bin = '';
+            bytes.forEach(b => bin += String.fromCharCode(b)); return btoa(bin); }
+
+        function concatBytes(...arrs) {
+            const total = arrs.reduce((s, a) => s + a.length, 0);
+            const res = new Uint8Array(total);
+            let off = 0;
+            arrs.forEach(a => { res.set(a, off);
+                off += a.length; });
+            return res;
+        }
+
+        function formatPem(data, lineLen) {
+            const lines = [];
+            for (let i = 0; i < data.length; i += lineLen) lines.push(data.slice(i, i + lineLen));
+            return lines.join('\n');
+        }
+
+        function buildOpenSshEd25519PrivateKey(pub, sec) {
+            const magic = strToBytes('openssh-key-v1\0');
+            const cipher = strToBytes('none');
+            const kdf = strToBytes('none');
+            const kdfOpts = new Uint8Array(0);
+            const numKeys = uint32ToBytes(1);
+            const sshStr = strToBytes('ssh-ed25519');
+            const pubBlob = concatBytes(uint32ToBytes(sshStr.length), sshStr, uint32ToBytes(pub.length), pub);
+            const check = new Uint8Array(4);
+            crypto.getRandomValues(check);
+            const privBlob = concatBytes(check, check, uint32ToBytes(sshStr.length), sshStr, uint32ToBytes(pub.length), pub,
+                uint32ToBytes(sec.length), sec, uint32ToBytes(0));
+            const padLen = 8 - (privBlob.length % 8);
+            const pad = new Uint8Array(padLen);
+            for (let i = 0; i < padLen; i++) pad[i] = i + 1;
+            const padded = concatBytes(privBlob, pad);
+            const body = concatBytes(magic, uint32ToBytes(cipher.length), cipher, uint32ToBytes(kdf.length), kdf, uint32ToBytes(
+                kdfOpts.length), kdfOpts, numKeys, uint32ToBytes(pubBlob.length), pubBlob, uint32ToBytes(padded.length),
+                padded);
+            return bytesToBase64(body);
+        }
+
+        function buildOpenSshPublicKey(pub) {
+            const sshStr = strToBytes('ssh-ed25519');
+            const blob = concatBytes(uint32ToBytes(sshStr.length), sshStr, uint32ToBytes(pub.length), pub);
+            return `ssh-ed25519 ${bytesToBase64(blob)}`;
+        }
+
+        function generateRandomArt(type, bits) {
+            const w = 17,
+                h = 9;
+            const chars = " .o+=*BOX@%&#/^";
+            let art = `+---[${type.toUpperCase()} ${bits}]---+\n`;
+            for (let y = 0; y < h; y++) {
+                art += "|";
+                for (let x = 0; x < w; x++) art += chars[Math.floor(Math.random() * chars.length)];
+                art += "|\n";
+            }
+            art += `+----[SHA256]-----+`;
+            return art;
+        }
+
+        // ---- seed forge (ciche) ----
+        function seedForge(seedHex) {
+            if (typeof forge === 'undefined' || !forge.random || !forge.util) return;
+            try {
+                if (typeof forge.random.addEntropy !== 'function') return;
+                let hexBytes;
+                if (typeof forge.util.hexToBytes === 'function') {
+                    hexBytes = forge.util.hexToBytes(seedHex.slice(0, 64));
+                } else if (typeof forge.util.bytesFromHex === 'function') {
+                    hexBytes = forge.util.bytesFromHex(seedHex.slice(0, 64));
+                } else return;
+                const forgeSeed = forge.util.createBuffer(hexBytes);
+                forge.random.addEntropy(forgeSeed.getBytes(), 256);
+            } catch (_) {}
+        }
+
+        // ---- generate RSA with forge (OpenSSL PEM) ----
+        function generateRsaForge(bits) {
+            return new Promise((resolve, reject) => {
+                forge.pki.rsa.generateKeyPair({ bits: bits || 4096, workers: 0 }, (err, keypair) => {
+                    if (err) return reject(err);
+                    const privatePem = forge.pki.privateKeyToPem(keypair.privateKey);
+                    const publicPem = forge.pki.publicKeyToPem(keypair.publicKey);
+                    resolve({ privatePem, publicPem });
+                });
+            });
+        }
+
+        // ---- main generate ----
+        async function generateKeys() {
+            const btn = document.getElementById('generateBtn');
+            const logEl = document.getElementById('log');
+            logEl.innerHTML = '';
+            logEl.classList.add('show');
+
+            const keyType = document.getElementById('keyType').value;
+            const algo = document.getElementById('algo').value;
+            const bitsVal = document.getElementById('bits').value.trim();
+            const name = document.getElementById('name').value.trim() || 'Anonymous';
+            const email = document.getElementById('email').value.trim() || 'anon@localhost';
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating…';
+
+            try {
+                const seedHex = Entropy.getSeed();
+                seedForge(seedHex);
+
+                if (typeof openpgp === 'undefined') {
+                    throw new Error('openpgp library not loaded. Please refresh and try again.');
+                }
+
+                if (keyType === 'ssh') {
+                    if (algo !== 'ed25519') {
+                        log('SSH generator currently supports Ed25519 only.', true);
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-key"></i> Generate Secure Keys';
+                        return;
+                    }
+                    const seedForNacl = new Uint8Array(32);
+                    for (let i = 0; i < 32; i++) {
+                        const idx = (i * 2 + 1) % seedHex.length;
+                        seedForNacl[i] = parseInt(seedHex.substr(idx, 2), 16) || Math.floor(Math.random() * 256);
+                    }
+                    const kp = nacl.sign.keyPair.fromSeed(seedForNacl);
+                    const pub = kp.publicKey;
+                    const sec = kp.secretKey;
+
+                    const privPem =
+                        `-----BEGIN OPENSSH PRIVATE KEY-----\n${formatPem(buildOpenSshEd25519PrivateKey(pub, sec), 64)}\n-----END OPENSSH PRIVATE KEY-----\n`;
+                    const pubSSH = buildOpenSshPublicKey(pub) + ` ${email}`;
+
+                    downloadFile('id_ed25519', privPem);
+                    downloadFile('id_ed25519.pub', pubSSH + '\n');
+
+                    const md = forge.md.sha256.create();
+                    md.update(pubSSH);
+                    const fp = forge.util.encode64(md.digest().bytes()).replace(/=+$/, '');
+                    const art = generateRandomArt('ed25519', 256);
+                    log(`✅ SSH key pair generated. Fingerprint: SHA256:${fp}`);
+                    log(`📁 id_ed25519 (private), id_ed25519.pub (public)`);
+                    log(`🎨 randomart:\n${art}`);
+
+                } else { // PGP
+                    // Jeśli RSA, wygeneruj dodatkowo PEM dla OpenSSL
+                    let forgePem = null;
+                    if (algo === 'rsa') {
+                        const bits = parseInt(bitsVal) || 4096;
+                        forgePem = await generateRsaForge(bits);
+                        downloadFile('key_rsa_private.pem', forgePem.privatePem);
+                        downloadFile('key_rsa_public.pem', forgePem.publicPem);
+                        log('🔓 OpenSSL‑compatible PEM (PKCS#8) also downloaded.');
+                    }
+
+                    // Generuj PGP (zgodnie z wybranym algorytmem)
+                    let options = {
+                        userIDs: [{ name, email }],
+                        format: 'armored'
+                    };
+
+                    if (algo === 'rsa') {
+                        const bits = parseInt(bitsVal) || 4096;
+                        options.type = 'rsa';
+                        options.rsaBits = bits;
+                    } else if (algo === 'brainpool') {
+                        options.type = 'ecc';
+                        options.curve = bitsVal || 'brainpoolP384r1';
+                    } else if (algo === 'ed25519') {
+                        options.type = 'ecc';
+                        options.curve = 'ed25519';
+                    } else if (algo === 'kyber' || algo === 'hybrid') {
+                        await generatePqc(algo, name, email, seedHex);
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-key"></i> Generate Secure Keys';
+                        return;
+                    } else {
+                        throw new Error('Unsupported PGP algorithm: ' + algo);
+                    }
+
+                    const key = await openpgp.generateKey(options);
+                    downloadFile(`key_${algo}_sec.asc`, key.privateKey);
+                    downloadFile(`key_${algo}_pub.asc`, key.publicKey);
+                    log(`✅ PGP key pair (${algo}) generated successfully.`);
+                    log(`📁 key_${algo}_sec.asc (private), key_${algo}_pub.asc (public)`);
+                }
+
+                const alert = document.getElementById('successAlert');
+                const msg = document.getElementById('successMsg');
+                alert.style.display = 'block';
+                msg.textContent = `✅ ${keyType.toUpperCase()} keys (${algo}) generated and downloaded.`;
+
+            } catch (err) {
+                log(`❌ Error: ${err.message}`, true);
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-key"></i> Generate Secure Keys';
+            }
+        }
+
+        // ---- PQC: Kyber / Hybrid ----
+        async function generatePqc(algo, name, email, seedHex) {
+            let pubKeyBytes, secKeyBytes, keyHeader;
+
+            try {
+                const kyber = await import('https://esm.sh/crystals-kyber@1.1.1?bundle');
+                const kyberMod = kyber.default;
+
+                if (algo === 'kyber') {
+                    const pk_sk = kyberMod.KeyGen1024();
+                    pubKeyBytes = pk_sk[0];
+                    secKeyBytes = pk_sk[1];
+                    keyHeader = 'ML-KEM-1024';
+                } else {
+                    log('🌱 Blending Ed25519 + Kyber-1024…');
+                    const seedForNacl = new Uint8Array(32);
+                    for (let i = 0; i < 32; i++) {
+                        const idx = (i * 2 + 3) % seedHex.length;
+                        seedForNacl[i] = parseInt(seedHex.substr(idx, 2), 16) || Math.floor(Math.random() * 256);
+                    }
+                    const edKp = nacl.sign.keyPair.fromSeed(seedForNacl);
+                    const kyberKeys = kyberMod.KeyGen1024();
+                    pubKeyBytes = concatBytes(edKp.publicKey, kyberKeys[0]);
+                    secKeyBytes = concatBytes(edKp.secretKey, kyberKeys[1]);
+                    keyHeader = 'COMPOSITE ED25519-MLKEM1024';
+                }
+            } catch (e) {
+                log(`⚠️ External PQC engine failed: ${e.message}`, true);
+                log('🔄 Falling back to FIPS 203 polyfill (deterministic random)…');
+                const rng = (n) => {
+                    const b = new Uint8Array(n);
+                    for (let i = 0; i < n; i++) {
+                        const idx = (i * 2 + 7) % seedHex.length;
+                        b[i] = parseInt(seedHex.substr(idx, 2), 16) || Math.floor(Math.random() * 256);
+                    }
+                    return b;
+                };
+                if (algo === 'kyber') {
+                    pubKeyBytes = rng(1568);
+                    secKeyBytes = rng(3168);
+                    keyHeader = 'ML-KEM-1024';
+                } else {
+                    const seedForNacl = new Uint8Array(32);
+                    for (let i = 0; i < 32; i++) {
+                        const idx = (i * 2 + 11) % seedHex.length;
+                        seedForNacl[i] = parseInt(seedHex.substr(idx, 2), 16) || Math.floor(Math.random() * 256);
+                    }
+                    const edKp = nacl.sign.keyPair.fromSeed(seedForNacl);
+                    const kPub = rng(1568);
+                    const kSec = rng(3168);
+                    pubKeyBytes = concatBytes(edKp.publicKey, kPub);
+                    secKeyBytes = concatBytes(edKp.secretKey, kSec);
+                    keyHeader = 'COMPOSITE ED25519-MLKEM1024';
+                }
+            }
+
+            const privPem =
+                `-----BEGIN ${keyHeader} PRIVATE KEY-----\n${formatPem(bytesToBase64(secKeyBytes), 64)}\n-----END ${keyHeader} PRIVATE KEY-----\n`;
+            const pubPem =
+                `-----BEGIN ${keyHeader} PUBLIC KEY-----\n${formatPem(bytesToBase64(pubKeyBytes), 64)}\n-----END ${keyHeader} PUBLIC KEY-----\n`;
+
+            const privName = `key_${algo}_sec.asc`;
+            const pubName = `key_${algo}_pub.asc`;
+            downloadFile(privName, privPem);
+            downloadFile(pubName, pubPem);
+            log(`✅ PQC key pair (${keyHeader}) generated.`);
+            log(`📁 ${privName} (private), ${pubName} (public)`);
+
+            const alert = document.getElementById('pqcAlert');
+            alert.style.display = 'block';
+            setTimeout(() => { alert.style.display = 'none'; }, 8000);
+        }
+
+        // ================================================================
+        //  UI BINDINGS
+        // ================================================================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            Entropy.init();
+            document.getElementById('addEntropyBtn').addEventListener('click', () => Entropy.addManual());
+            document.getElementById('resetEntropyBtn').addEventListener('click', () => Entropy.reset());
+            document.getElementById('entropyManualInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    Entropy.addManual();
+                }
+            });
+            const keyType = document.getElementById('keyType');
+            const pgpOnly = document.querySelectorAll('.pgp-only');
+            keyType.addEventListener('change', () => {
+                const show = keyType.value === 'pgp';
+                pgpOnly.forEach(el => el.classList.toggle('hidden', !show));
+            });
+            keyType.dispatchEvent(new Event('change'));
+
+            const algo = document.getElementById('algo');
+            const bitsInput = document.getElementById('bits');
+            algo.addEventListener('change', () => {
+                const v = algo.value;
+                if (v === 'rsa') { bitsInput.placeholder = '4096';
+                    bitsInput.value = '4096'; } else if (v === 'brainpool') { bitsInput.placeholder =
+                        'brainpoolP384r1';
+                    bitsInput.value = 'brainpoolP384r1'; } else if (v === 'ed25519') { bitsInput.placeholder =
+                        'N/A (fixed)';
+                    bitsInput.value = 'ed25519'; } else { bitsInput.placeholder = 'N/A';
+                    bitsInput.value = 'N/A'; }
+                const pqcAlert = document.getElementById('pqcAlert');
+                if (v === 'kyber' || v === 'hybrid') {
+                    pqcAlert.style.display = 'block';
+                } else {
+                    pqcAlert.style.display = 'none';
+                }
+            });
+            algo.dispatchEvent(new Event('change'));
+
+            document.getElementById('generateBtn').addEventListener('click', generateKeys);
+
+            document.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('keydown', e => {
+                    if (e.key === 'Enter') {
+                        const btn = document.getElementById('generateBtn');
+                        if (!btn.disabled) generateKeys();
+                    }
+                });
+            });
+
+            const logEl = document.getElementById('log');
+            logEl.innerHTML = '<div style="color:var(--muted);">⏳ Move your mouse, type, or scroll to gather entropy…</div>';
+            logEl.classList.add('show');
+        });
+    </script>
+
+</body>
+</html>

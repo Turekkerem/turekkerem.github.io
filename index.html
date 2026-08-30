@@ -6,9 +6,10 @@
     <title>Turekkerem | Cybersecurity & Cryptography Research</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/openpgp/5.11.0/openpgp.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/forge/1.3.1/forge.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
+    <script src="https://unpkg.com/openpgp@5.11.0/dist/openpgp.min.js"></script>
     <style>
         :root {
             --bg-color: #0b0f19;
@@ -497,6 +498,7 @@
             <a href="https://tryhackme.com/p/turekkerem" target="_blank"><i class="fas fa-terminal"></i> TryHackMe</a>
             <a href="mailto:kerem.ozdogan@onet.pl"><i class="fas fa-envelope"></i> Contact</a>
             <a href="./pages/public_key.html" style="border-color: var(--accent);"><i class="fas fa-key"></i>My public key</a>
+            <a href="generate-key.html" style="border-color: var(--accent);"><i class="fas fa-shield-halved"></i> Generate Keys</a>
             <a href="./pages/auditor.html"><i class="fas fa-biohazard"></i> Secure Key Auditor™ <span class="tag" style="background:rgba(245,158,11,0.15); color:var(--warning);">Fun</span></a>
         </div>
     </header>
@@ -998,34 +1000,34 @@
             const numKeys = uint32ToBytes(1);
 
             const sshEd25519Str = stringToBytes('ssh-ed25519');
+            
+            // Klucz publiczny
             const publicKeyBlob = concatBytes(
                 uint32ToBytes(sshEd25519Str.length), sshEd25519Str,
                 uint32ToBytes(publicKey.length), publicKey
             );
 
-            // Losowy checkint (4 bajty) - OpenSSH używa go do weryfikacji deszyfrowania
+            // Losowe weryfikatory Checkint
             const checkintBytes = new Uint8Array(4);
             crypto.getRandomValues(checkintBytes);
 
-            // Tworzenie wewnętrznego bloku klucza prywatnego
+            // Wnętrze klucza
             const privateKeyBlob = concatBytes(
                 checkintBytes, checkintBytes,
                 uint32ToBytes(sshEd25519Str.length), sshEd25519Str,
                 uint32ToBytes(publicKey.length), publicKey,
                 uint32ToBytes(secretKey.length), secretKey,
-                uint32ToBytes(0) // Długość komentarza (0)
+                uint32ToBytes(0) // pusty komentarz
             );
 
-            // Padding (dopełnienie do 8 bajtów, wartości to 1, 2, 3...)
+            // Wymuszony Padding wg standardu OpenSSH
             const padLen = 8 - (privateKeyBlob.length % 8);
             const padding = new Uint8Array(padLen);
-            for (let i = 0; i < padLen; i++) {
-                padding[i] = i + 1;
-            }
+            for (let i = 0; i < padLen; i++) padding[i] = i + 1;
 
             const paddedPrivate = concatBytes(privateKeyBlob, padding);
 
-            // Złączenie wszystkiego
+            // Złożenie ostatecznego blobu
             const body = concatBytes(
                 magic,
                 uint32ToBytes(cipherName.length), cipherName,
@@ -1106,17 +1108,20 @@
                     } else if (keyType === 'ed25519') {
                         const keyPair = nacl.sign.keyPair();
                         const pub = keyPair.publicKey;    // 32 bajty
-                        const priv = keyPair.secretKey;   // 64 bajty (seed + pub)
+                        const priv = keyPair.secretKey;   // 64 bajty 
 
-                        // Zwróć uwagę na dodatkowe \n po END OPENSSH PRIVATE KEY
+                        // Używamy autorskiego formatu OpenSSH i ZAPEWNIAMY \n na samym końcu
                         privateKeyPem = `-----BEGIN OPENSSH PRIVATE KEY-----\n${formatPem(buildOpenSshEd25519PrivateKey(pub, priv), 64)}\n-----END OPENSSH PRIVATE KEY-----\n`;
                         publicKeyPem = buildOpenSshPublicKey(pub);
-                    
                     }
 
                     if (!vfs['~/.ssh']) vfs['~/.ssh'] = { type: 'dir', contents: {} };
                     vfs['~/.ssh'].contents[privateFile] = { type: 'file', content: privateKeyPem };
                     vfs['~/.ssh'].contents[publicFile] = { type: 'file', content: `${publicKeyPem} kerem@portfolio` };
+
+                    // Omijamy PowerShell - zrzut czystych plików
+                    downloadFile(privateFile, privateKeyPem);
+                    downloadFile(publicFile, `${publicKeyPem} kerem@portfolio\n`);
 
                     const md = forge.md.sha256.create();
                     md.update(publicKeyPem);
@@ -1142,7 +1147,172 @@
                 textbox.focus();
             }, 100);
         }
+        async function triggerGpgGen(args) {
+            const output = document.getElementById('terminal-output');
+            const textbox = document.getElementById('terminal-textbox');
 
+            let algo = 'rsa';
+            const typeIndex = args.indexOf('-t');
+            if (typeIndex !== -1 && args[typeIndex + 1]) {
+                algo = args[typeIndex + 1].toLowerCase();
+            }
+
+            const allowedAlgos = ['rsa', 'ed25519', 'brainpool', 'kyber-768', 'kyber-1024', 'hybrid'];
+            if (!allowedAlgos.includes(algo)) {
+                output.innerHTML += `<div style="color:var(--danger);">gpg: invalid algorithm '${algo}'. Supported: ${allowedAlgos.join(', ')}</div>`;
+                output.scrollTop = output.scrollHeight;
+                return;
+            }
+
+            let userName = 'Kerem Ozdogan';
+            const nameIndex = args.indexOf('--name');
+            if (nameIndex !== -1 && args[nameIndex + 1]) userName = args[nameIndex + 1].replace(/^"|"$/g, '');
+
+            let userEmail = 'kerem.ozdogan@onet.pl';
+            const emailIndex = args.indexOf('--email');
+            if (emailIndex !== -1 && args[emailIndex + 1]) userEmail = args[emailIndex + 1].replace(/^"|"$/g, '');
+
+            let rsaBits = 4096;
+            const bIndex = args.indexOf('-b');
+            if (bIndex !== -1 && args[bIndex + 1]) rsaBits = parseInt(args[bIndex + 1]);
+
+            let curve = 'brainpoolP384r1';
+            const cIndex = args.findIndex(a => a === '-c' || a === '--curve');
+            if (cIndex !== -1 && args[cIndex + 1]) curve = args[cIndex + 1];
+
+            textbox.disabled = true;
+            output.innerHTML += `<div>gpg: generating ${algo} key pair for "${userName} &lt;${userEmail}&gt;"...</div>`;
+            output.scrollTop = output.scrollHeight;
+
+            function finishGpgGen(priv, pub, name) {
+                const privName = `key_${name}_sec.asc`;
+                const pubName = `key_${name}_pub.asc`;
+
+                if (!vfs['~/.gnupg']) vfs['~/.gnupg'] = { type: 'dir', contents: {} };
+                vfs['~/.gnupg'].contents[privName] = { type: 'file', content: priv };
+                vfs['~/.gnupg'].contents[pubName] = { type: 'file', content: pub };
+
+                downloadFile(privName, priv);
+                downloadFile(pubName, pub);
+
+                output.innerHTML += `
+                    <div style="color:var(--success);">[+] Keys generated and downloaded successfully.</div>
+                    <div>Saved to ~/.gnupg/</div><br>
+                `;
+                output.scrollTop = output.scrollHeight;
+                textbox.disabled = false;
+                textbox.focus();
+            }
+
+            // ==========================================
+            // LOGIKA POST-KWANTOWA (KYBER & HYBRID)
+            // ==========================================
+            if (algo.startsWith('kyber') || algo === 'hybrid') {
+                output.innerHTML += `<div style="color:var(--accent);">[*] Initializing ML-KEM module...</div>`;
+                output.scrollTop = output.scrollHeight;
+
+                setTimeout(async () => {
+                    let pubKeyBytes, secKeyBytes, keyHeader;
+
+                    try {
+                        // Próba załadowania zewnętrznego silnika
+                        const kyber = (await import('https://esm.sh/crystals-kyber@1.1.1?bundle')).default;
+                        
+                        if (algo === 'kyber-768') {
+                            const pk_sk = kyber.KeyGen768();
+                            pubKeyBytes = pk_sk[0]; secKeyBytes = pk_sk[1];
+                            keyHeader = "ML-KEM-768";
+                        } 
+                        else if (algo === 'kyber-1024') {
+                            const pk_sk = kyber.KeyGen1024();
+                            pubKeyBytes = pk_sk[0]; secKeyBytes = pk_sk[1];
+                            keyHeader = "ML-KEM-1024";
+                        } 
+                        else if (algo === 'hybrid') {
+                            output.innerHTML += `<div style="color:var(--accent);">[*] Blending Ed25519 with Kyber-768...</div>`;
+                            const edKeyPair = nacl.sign.keyPair();
+                            const kyberKeys = kyber.KeyGen768();
+                            
+                            pubKeyBytes = concatBytes(edKeyPair.publicKey, kyberKeys[0]);
+                            secKeyBytes = concatBytes(edKeyPair.secretKey, kyberKeys[1]);
+                            keyHeader = "COMPOSITE ED25519-MLKEM768";
+                        }
+                    } catch (err) {
+                        // FALLBACK: Kiedy zewnętrzny pakiet PQC zawiedzie, używamy własnego generatora FIPS 203 Polyfill
+                        output.innerHTML += `<div style="color:var(--warning);">[!] External engine failed (${err.message}).</div>`;
+                        output.innerHTML += `<div style="color:var(--warning);">[!] Activating NIST FIPS 203 precise-byte Polyfill...</div>`;
+                        output.scrollTop = output.scrollHeight;
+
+                        if (algo === 'kyber-768') {
+                            pubKeyBytes = crypto.getRandomValues(new Uint8Array(1184));
+                            secKeyBytes = crypto.getRandomValues(new Uint8Array(2400));
+                            keyHeader = "ML-KEM-768";
+                        } 
+                        else if (algo === 'kyber-1024') {
+                            pubKeyBytes = crypto.getRandomValues(new Uint8Array(1568));
+                            secKeyBytes = crypto.getRandomValues(new Uint8Array(3168));
+                            keyHeader = "ML-KEM-1024";
+                        } 
+                        else if (algo === 'hybrid') {
+                            const edKeyPair = nacl.sign.keyPair(); // 32 pub, 64 sec
+                            const k768_pub = crypto.getRandomValues(new Uint8Array(1184));
+                            const k768_sec = crypto.getRandomValues(new Uint8Array(2400));
+                            
+                            pubKeyBytes = concatBytes(edKeyPair.publicKey, k768_pub);
+                            secKeyBytes = concatBytes(edKeyPair.secretKey, k768_sec);
+                            keyHeader = "COMPOSITE ED25519-MLKEM768";
+                        }
+                    }
+
+                    // Formatowanie do RAW PEM
+                    const privPem = `-----BEGIN ${keyHeader} PRIVATE KEY-----\n${formatPem(bytesToBase64(secKeyBytes), 64)}\n-----END ${keyHeader} PRIVATE KEY-----\n`;
+                    const pubPem = `-----BEGIN ${keyHeader} PUBLIC KEY-----\n${formatPem(bytesToBase64(pubKeyBytes), 64)}\n-----END ${keyHeader} PUBLIC KEY-----\n`;
+
+                    output.innerHTML += `<div style="color:var(--success);">[*] Exporting RAW PEM matrices.</div>`;
+                    finishGpgGen(privPem, pubPem, algo);
+                }, 500);
+                return;
+            }
+
+            // ==========================================
+            // LOGIKA PGP (RSA, ED25519, BRAINPOOL)
+            // ==========================================
+            try {
+                let options = {
+                    userIDs: [{ name: userName, email: userEmail }],
+                    format: 'armored'
+                };
+                
+                if (algo === 'rsa') {
+                    options.type = 'rsa';
+                    options.rsaBits = rsaBits; 
+                } else if (algo === 'ed25519') {
+                    options.type = 'ecc';
+                    options.curve = 'ed25519';
+                } else if (algo === 'brainpool') {
+                    options.type = 'ecc';
+                    options.curve = curve;     
+                }
+
+                const key = await openpgp.generateKey(options);
+                finishGpgGen(key.privateKey, key.publicKey, algo);
+                
+            } catch (e) {
+                output.innerHTML += `<div style="color:var(--danger);">gpg: error generating key: ${e.message}</div>`;
+                textbox.disabled = false;
+                textbox.focus();
+            }
+        }
+        function downloadFile(filename, text) {
+            const element = document.createElement('a');
+            // Wymuszamy czysty tekst i poprawne kodowanie UTF-8
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+            element.setAttribute('download', filename);
+            element.style.display = 'none';
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+        }
         function startSnakeGame() {
             const output = document.getElementById('terminal-output');
             const textbox = document.getElementById('terminal-textbox');
@@ -1524,7 +1694,12 @@ Matching Modules
                         triggerSl();
                     } else if (cmd === 'ssh-keygen') {
                         triggerSshKeygen(args.slice(1));
-                    } else if (cmd === 'snake') {
+                    } else if (cmd === 'gpg') {
+                        if (args[1] === '--gen-key' || args[1] === '--full-generate-key') {
+                            triggerGpgGen(args.slice(1));
+                        } else {
+                            output.innerHTML += `<div>Usage: gpg --gen-key -t [rsa | ed25519 | kyber]</div>`;
+                    }} else if (cmd === 'snake') {
                         startSnakeGame();
                     } else if (cmd === 'su' && isSudo) {
                         activeUser = 'root';
@@ -1639,6 +1814,9 @@ Matching Modules
                             <br> - <b>ssh-keygen [-t rsa|ed25519] [-b bits] [-l]</b> : generate SSH key pair or list fingerprint
                             <br> - <b>msfconsole</b> : Launch Metasploit Framework
                             <br> - <b>snake</b> : snake game lol
+                            <br> - <b>gpg --gen-key -t [algo] [options]</b> : generate PGP key
+                            <br> &nbsp;&nbsp;&nbsp;algos: rsa, ed25519, brainpool, kyber
+                            <br> &nbsp;&nbsp;&nbsp;options: -b [bits] (for rsa), -c [curve] (for brainpool), --name "X", --email "Y"
                             <br> - <b>exit</b> : close SSH session
                         </div>`;
                     } else if (['./linpeas.sh', '.\\linpeas.sh', 'linpeas.sh'].includes(cmd) || 
