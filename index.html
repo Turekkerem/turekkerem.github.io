@@ -542,7 +542,48 @@
             <h3>2. Cryptography: Classical Limitations & Post-Quantum (PQC) Shift</h3>
             <p>Exploring the cryptographic spectrum from classical and traditional ciphers to the emerging post-quantum era. Traditional asymmetric schemes face severe vulnerabilities against scalable quantum attacks via Shor's algorithm. My research focuses on analyzing architectural friction, memory constraints, and migration strategies toward NIST-standardized Post-Quantum Cryptography.</p>
         </div>
-
+        <!-- Wireless Pentesting Card -->
+        <div class="card">
+            <h2><i class="fas fa-wifi"></i> Wireless Pentesting & Favourite Vulnerability</h2>
+            <p>
+                I have a strong passion for <strong>wireless network security</strong> – from
+                reconnaissance and deauthentication attacks to WPA/WPA2 handshake capturing and
+                offline cracking. The elegance of attacking the air interface fascinates me,
+                especially when combined with clever protocol weaknesses.
+            </p>
+            <div class="highlight-box" style="border-left-color: var(--warning); background: rgba(245,158,11,0.06);">
+                <p style="margin-bottom: 0; font-size: 1.05rem;">
+                    <i class="fas fa-star" style="color: var(--warning);"></i>
+                    <strong>Favourite vulnerability:</strong>
+                    <span style="color: var(--warning); font-weight: 700;">Pixie‑Dust</span>
+                    <span style="color: var(--text-muted); font-weight: 400;">– so simple, yet so effective.</span>
+                </p>
+                <p style="margin-top: 10px; font-size: 0.95rem;">
+                    Pixie‑Dust exploits the poor randomness in the WPS (Wi‑Fi Protected Setup) PIN
+                    generation algorithm used by many routers. By capturing a single WPS handshake
+                    (the <em>M1–M8</em> exchange), an attacker can recover the WPS PIN <strong>offline</strong>
+                    in seconds, and from that derive the WPA/WPA2 passphrase. No brute‑force, no
+                    waiting – just pure cryptographic shortcut.
+                </p>
+                <p style="margin-top: 8px; font-size: 0.9rem; color: var(--text-muted);">
+                    <i class="fas fa-lightbulb" style="color: var(--warning);"></i>
+                    It's a perfect example of how a design flaw (predictable PRNG) can completely
+                    undermine the security of a protocol – and why I love digging into low‑level
+                    internals.
+                </p>
+            </div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px;">
+                <span class="cert-badge" style="background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.25); color: var(--warning);">
+                    <i class="fas fa-tools"></i> aireplay-ng
+                </span>
+                <span class="cert-badge" style="background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.25); color: var(--warning);">
+                    <i class="fas fa-bolt"></i> reaver
+                </span>
+                <span class="cert-badge" style="background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.25); color: var(--accent);">
+                    <i class="fas fa-shield-alt"></i> WPS‑pixie
+                </span>
+            </div>
+        </div>
         <div class="card">
             <h2><i class="fas fa-award"></i> Selected Repositories</h2>
             <p>Key tools and frameworks highlighting my practical research:</p>
