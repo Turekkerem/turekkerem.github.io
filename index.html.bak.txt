@@ -6,10 +6,7 @@
     <title>Turekkerem | Cybersecurity & Cryptography Research</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/openpgp/5.11.0/openpgp.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/forge/1.3.1/forge.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
-    <script src="https://unpkg.com/openpgp@5.11.0/dist/openpgp.min.js"></script>
     <style>
         :root {
             --bg-color: #0b0f19;
@@ -498,7 +495,6 @@
             <a href="https://tryhackme.com/p/turekkerem" target="_blank"><i class="fas fa-terminal"></i> TryHackMe</a>
             <a href="mailto:kerem.ozdogan@onet.pl"><i class="fas fa-envelope"></i> Contact</a>
             <a href="./pages/public_key.html" style="border-color: var(--accent);"><i class="fas fa-key"></i>My public key</a>
-            <a href="generate-key.html" style="border-color: var(--accent);"><i class="fas fa-shield-halved"></i> Generate Keys</a>
             <a href="./pages/auditor.html"><i class="fas fa-biohazard"></i> Secure Key Auditor™ <span class="tag" style="background:rgba(245,158,11,0.15); color:var(--warning);">Fun</span></a>
         </div>
     </header>
@@ -620,9 +616,7 @@
             initDynamicProjectsVfs();
             initCertificatesVfs();
         });
-        function formatContent(text) {
-            return text.replace(/\n/g, '<br>');
-        }
+
         async function initDynamicProjectsVfs() {
             const username = 'Turekkerem';
             const repoNames = ['Veneronica', 'Internal-Monologue-Attack', 'DPAPI-Abuser-PoC', 'The-Prude-Project'];
@@ -710,8 +704,6 @@
         let currentDir = '~';
         let linpeasExecutable = false;
         
-        let commandHistory = [];
-        let historyIndex = 0;
         // --- MSFCONSOLE STATE ---
         let inMsf = false;
         let msfModule = '';
@@ -952,14 +944,7 @@
             art += `+----[SHA256]-----+`;
             return art;
         }
-        function base64UrlToBytes(base64url) {
-            const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
-            const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
-            const binary = atob(padded);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            return bytes;
-        }
+
         function formatPem(data, lineLength) {
             const lines = [];
             for (let i = 0; i < data.length; i += lineLength) {
@@ -967,93 +952,7 @@
             }
             return lines.join('\n');
         }
-        function uint32ToBytes(num) {
-            const buf = new ArrayBuffer(4);
-            const view = new DataView(buf);
-            view.setUint32(0, num, false); // big-endian
-            return new Uint8Array(buf);
-        }
 
-        function stringToBytes(str) {
-            const enc = new TextEncoder();
-            return enc.encode(str);
-        }
-
-        function bytesToBase64(bytes) {
-            let binary = '';
-            bytes.forEach(b => binary += String.fromCharCode(b));
-            return btoa(binary);
-        }
-
-        function concatBytes(...arrays) {
-            const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
-            const result = new Uint8Array(totalLength);
-            let offset = 0;
-            arrays.forEach(arr => {
-                result.set(arr, offset);
-                offset += arr.length;
-            });
-            return result;
-        }
-
-        function buildOpenSshEd25519PrivateKey(publicKey, secretKey) {
-            const magic = stringToBytes('openssh-key-v1\0');
-            const cipherName = stringToBytes('none');
-            const kdfName = stringToBytes('none');
-            const kdfOptions = new Uint8Array(0);
-            const numKeys = uint32ToBytes(1);
-
-            const sshEd25519Str = stringToBytes('ssh-ed25519');
-            
-            // Klucz publiczny
-            const publicKeyBlob = concatBytes(
-                uint32ToBytes(sshEd25519Str.length), sshEd25519Str,
-                uint32ToBytes(publicKey.length), publicKey
-            );
-
-            // Losowe weryfikatory Checkint
-            const checkintBytes = new Uint8Array(4);
-            crypto.getRandomValues(checkintBytes);
-
-            // Wnętrze klucza
-            const privateKeyBlob = concatBytes(
-                checkintBytes, checkintBytes,
-                uint32ToBytes(sshEd25519Str.length), sshEd25519Str,
-                uint32ToBytes(publicKey.length), publicKey,
-                uint32ToBytes(secretKey.length), secretKey,
-                uint32ToBytes(0) // pusty komentarz
-            );
-
-            // Wymuszony Padding wg standardu OpenSSH
-            const padLen = 8 - (privateKeyBlob.length % 8);
-            const padding = new Uint8Array(padLen);
-            for (let i = 0; i < padLen; i++) padding[i] = i + 1;
-
-            const paddedPrivate = concatBytes(privateKeyBlob, padding);
-
-            // Złożenie ostatecznego blobu
-            const body = concatBytes(
-                magic,
-                uint32ToBytes(cipherName.length), cipherName,
-                uint32ToBytes(kdfName.length), kdfName,
-                uint32ToBytes(kdfOptions.length), kdfOptions,
-                numKeys,
-                uint32ToBytes(publicKeyBlob.length), publicKeyBlob,
-                uint32ToBytes(paddedPrivate.length), paddedPrivate
-            );
-
-            return bytesToBase64(body);
-        }
-
-        function buildOpenSshPublicKey(publicKey) {
-            const sshEd25519Str = stringToBytes('ssh-ed25519');
-            const blob = concatBytes(
-                uint32ToBytes(sshEd25519Str.length), sshEd25519Str,
-                uint32ToBytes(publicKey.length), publicKey
-            );
-            return `ssh-ed25519 ${bytesToBase64(blob)}`;
-        }
-        
         async function triggerSshKeygen(args) {
             const output = document.getElementById('terminal-output');
             const textbox = document.getElementById('terminal-textbox');
@@ -1078,6 +977,7 @@
             let keyType = 'rsa';
             let bits = 2048;
 
+            // Poprawione parsowanie argumentów -t oraz -b niezależnie od kolejności
             const typeIndex = args.indexOf('-t');
             if (typeIndex !== -1 && args[typeIndex + 1]) {
                 keyType = args[typeIndex + 1].toLowerCase();
@@ -1085,53 +985,39 @@
             const bitsIndex = args.indexOf('-b');
             if (bitsIndex !== -1 && args[bitsIndex + 1]) {
                 const requestedBits = parseInt(args[bitsIndex + 1]);
-                if (!isNaN(requestedBits) && requestedBits >= 512 && requestedBits <= 8192) bits = requestedBits;
+                if (!isNaN(requestedBits) && requestedBits >= 1024 && requestedBits <= 4096) bits = requestedBits;
             }
 
             textbox.disabled = true;
-            output.innerHTML += `<div>Generating public/private ${keyType} key pair (${keyType === 'rsa' ? bits + ' bits' : 'default'}).</div>`;
+            output.innerHTML += `<div>Generating public/private ${keyType} key pair (${bits} bits).</div>`;
             output.innerHTML += `<div>Creating directory '~/.ssh'.</div>`;
 
             setTimeout(async () => {
                 try {
                     const pki = forge.pki;
-                    let privateKeyPem, publicKeyPem;
+                    
+                    const keypair = await new Promise((resolve) => {
+                        pki.rsa.generateKeyPair({ bits: bits, workers: -1 }, (err, keypair) => {
+                            resolve(keypair);
+                        });
+                    });
+
+                    const privateKeyPem = pki.privateKeyToPem(keypair.privateKey);
+                    // POPRAWKA: użycie forge.ssh zamiast pki
+                    const publicKeyPem = forge.ssh.publicKeyToOpenSSH(keypair.publicKey);
 
                     const privateFile = keyType === 'rsa' ? 'id_rsa' : 'id_ed25519';
                     const publicFile = privateFile + '.pub';
-
-                    if (keyType === 'rsa') {
-                        // Generowanie prawdziwego RSA (tak jak dotychczas)
-                        const keypair = await new Promise((resolve) => {
-                            pki.rsa.generateKeyPair({ bits: bits, workers: 0 }, (err, keypair) => {
-                                resolve(keypair);
-                            });
-                        });
-                        privateKeyPem = pki.privateKeyToPem(keypair.privateKey);
-                        publicKeyPem = forge.ssh.publicKeyToOpenSSH(keypair.publicKey);
-                    } else if (keyType === 'ed25519') {
-                        const keyPair = nacl.sign.keyPair();
-                        const pub = keyPair.publicKey;    // 32 bajty
-                        const priv = keyPair.secretKey;   // 64 bajty 
-
-                        // Używamy autorskiego formatu OpenSSH i ZAPEWNIAMY \n na samym końcu
-                        privateKeyPem = `-----BEGIN OPENSSH PRIVATE KEY-----\n${formatPem(buildOpenSshEd25519PrivateKey(pub, priv), 64)}\n-----END OPENSSH PRIVATE KEY-----\n`;
-                        publicKeyPem = buildOpenSshPublicKey(pub);
-                    }
 
                     if (!vfs['~/.ssh']) vfs['~/.ssh'] = { type: 'dir', contents: {} };
                     vfs['~/.ssh'].contents[privateFile] = { type: 'file', content: privateKeyPem };
                     vfs['~/.ssh'].contents[publicFile] = { type: 'file', content: `${publicKeyPem} kerem@portfolio` };
 
-                    // Omijamy PowerShell - zrzut czystych plików
-                    downloadFile(privateFile, privateKeyPem);
-                    downloadFile(publicFile, `${publicKeyPem} kerem@portfolio\n`);
-
                     const md = forge.md.sha256.create();
                     md.update(publicKeyPem);
                     const fingerprint = forge.util.encode64(md.digest().bytes()).replace(/=+$/, '');
                     
-                    const randomArt = generateRandomArt(keyType, keyType === 'rsa' ? bits : 256);
+                    const randomArt = generateRandomArt(keyType, bits);
 
                     output.innerHTML += `
                         <br>
@@ -1151,172 +1037,7 @@
                 textbox.focus();
             }, 100);
         }
-        async function triggerGpgGen(args) {
-            const output = document.getElementById('terminal-output');
-            const textbox = document.getElementById('terminal-textbox');
 
-            let algo = 'rsa';
-            const typeIndex = args.indexOf('-t');
-            if (typeIndex !== -1 && args[typeIndex + 1]) {
-                algo = args[typeIndex + 1].toLowerCase();
-            }
-
-            const allowedAlgos = ['rsa', 'ed25519', 'brainpool', 'kyber-768', 'kyber-1024', 'hybrid'];
-            if (!allowedAlgos.includes(algo)) {
-                output.innerHTML += `<div style="color:var(--danger);">gpg: invalid algorithm '${algo}'. Supported: ${allowedAlgos.join(', ')}</div>`;
-                output.scrollTop = output.scrollHeight;
-                return;
-            }
-
-            let userName = 'Kerem Ozdogan';
-            const nameIndex = args.indexOf('--name');
-            if (nameIndex !== -1 && args[nameIndex + 1]) userName = args[nameIndex + 1].replace(/^"|"$/g, '');
-
-            let userEmail = 'kerem.ozdogan@onet.pl';
-            const emailIndex = args.indexOf('--email');
-            if (emailIndex !== -1 && args[emailIndex + 1]) userEmail = args[emailIndex + 1].replace(/^"|"$/g, '');
-
-            let rsaBits = 4096;
-            const bIndex = args.indexOf('-b');
-            if (bIndex !== -1 && args[bIndex + 1]) rsaBits = parseInt(args[bIndex + 1]);
-
-            let curve = 'brainpoolP384r1';
-            const cIndex = args.findIndex(a => a === '-c' || a === '--curve');
-            if (cIndex !== -1 && args[cIndex + 1]) curve = args[cIndex + 1];
-
-            textbox.disabled = true;
-            output.innerHTML += `<div>gpg: generating ${algo} key pair for "${userName} &lt;${userEmail}&gt;"...</div>`;
-            output.scrollTop = output.scrollHeight;
-
-            function finishGpgGen(priv, pub, name) {
-                const privName = `key_${name}_sec.asc`;
-                const pubName = `key_${name}_pub.asc`;
-
-                if (!vfs['~/.gnupg']) vfs['~/.gnupg'] = { type: 'dir', contents: {} };
-                vfs['~/.gnupg'].contents[privName] = { type: 'file', content: priv };
-                vfs['~/.gnupg'].contents[pubName] = { type: 'file', content: pub };
-
-                downloadFile(privName, priv);
-                downloadFile(pubName, pub);
-
-                output.innerHTML += `
-                    <div style="color:var(--success);">[+] Keys generated and downloaded successfully.</div>
-                    <div>Saved to ~/.gnupg/</div><br>
-                `;
-                output.scrollTop = output.scrollHeight;
-                textbox.disabled = false;
-                textbox.focus();
-            }
-
-            // ==========================================
-            // LOGIKA POST-KWANTOWA (KYBER & HYBRID)
-            // ==========================================
-            if (algo.startsWith('kyber') || algo === 'hybrid') {
-                output.innerHTML += `<div style="color:var(--accent);">[*] Initializing ML-KEM module...</div>`;
-                output.scrollTop = output.scrollHeight;
-
-                setTimeout(async () => {
-                    let pubKeyBytes, secKeyBytes, keyHeader;
-
-                    try {
-                        // Próba załadowania zewnętrznego silnika
-                        const kyber = (await import('https://esm.sh/crystals-kyber@1.1.1?bundle')).default;
-                        
-                        if (algo === 'kyber-768') {
-                            const pk_sk = kyber.KeyGen768();
-                            pubKeyBytes = pk_sk[0]; secKeyBytes = pk_sk[1];
-                            keyHeader = "ML-KEM-768";
-                        } 
-                        else if (algo === 'kyber-1024') {
-                            const pk_sk = kyber.KeyGen1024();
-                            pubKeyBytes = pk_sk[0]; secKeyBytes = pk_sk[1];
-                            keyHeader = "ML-KEM-1024";
-                        } 
-                        else if (algo === 'hybrid') {
-                            output.innerHTML += `<div style="color:var(--accent);">[*] Blending Ed25519 with Kyber-768...</div>`;
-                            const edKeyPair = nacl.sign.keyPair();
-                            const kyberKeys = kyber.KeyGen768();
-                            
-                            pubKeyBytes = concatBytes(edKeyPair.publicKey, kyberKeys[0]);
-                            secKeyBytes = concatBytes(edKeyPair.secretKey, kyberKeys[1]);
-                            keyHeader = "COMPOSITE ED25519-MLKEM768";
-                        }
-                    } catch (err) {
-                        // FALLBACK: Kiedy zewnętrzny pakiet PQC zawiedzie, używamy własnego generatora FIPS 203 Polyfill
-                        output.innerHTML += `<div style="color:var(--warning);">[!] External engine failed (${err.message}).</div>`;
-                        output.innerHTML += `<div style="color:var(--warning);">[!] Activating NIST FIPS 203 precise-byte Polyfill...</div>`;
-                        output.scrollTop = output.scrollHeight;
-
-                        if (algo === 'kyber-768') {
-                            pubKeyBytes = crypto.getRandomValues(new Uint8Array(1184));
-                            secKeyBytes = crypto.getRandomValues(new Uint8Array(2400));
-                            keyHeader = "ML-KEM-768";
-                        } 
-                        else if (algo === 'kyber-1024') {
-                            pubKeyBytes = crypto.getRandomValues(new Uint8Array(1568));
-                            secKeyBytes = crypto.getRandomValues(new Uint8Array(3168));
-                            keyHeader = "ML-KEM-1024";
-                        } 
-                        else if (algo === 'hybrid') {
-                            const edKeyPair = nacl.sign.keyPair(); // 32 pub, 64 sec
-                            const k768_pub = crypto.getRandomValues(new Uint8Array(1184));
-                            const k768_sec = crypto.getRandomValues(new Uint8Array(2400));
-                            
-                            pubKeyBytes = concatBytes(edKeyPair.publicKey, k768_pub);
-                            secKeyBytes = concatBytes(edKeyPair.secretKey, k768_sec);
-                            keyHeader = "COMPOSITE ED25519-MLKEM768";
-                        }
-                    }
-
-                    // Formatowanie do RAW PEM
-                    const privPem = `-----BEGIN ${keyHeader} PRIVATE KEY-----\n${formatPem(bytesToBase64(secKeyBytes), 64)}\n-----END ${keyHeader} PRIVATE KEY-----\n`;
-                    const pubPem = `-----BEGIN ${keyHeader} PUBLIC KEY-----\n${formatPem(bytesToBase64(pubKeyBytes), 64)}\n-----END ${keyHeader} PUBLIC KEY-----\n`;
-
-                    output.innerHTML += `<div style="color:var(--success);">[*] Exporting RAW PEM matrices.</div>`;
-                    finishGpgGen(privPem, pubPem, algo);
-                }, 500);
-                return;
-            }
-
-            // ==========================================
-            // LOGIKA PGP (RSA, ED25519, BRAINPOOL)
-            // ==========================================
-            try {
-                let options = {
-                    userIDs: [{ name: userName, email: userEmail }],
-                    format: 'armored'
-                };
-                
-                if (algo === 'rsa') {
-                    options.type = 'rsa';
-                    options.rsaBits = rsaBits; 
-                } else if (algo === 'ed25519') {
-                    options.type = 'ecc';
-                    options.curve = 'ed25519';
-                } else if (algo === 'brainpool') {
-                    options.type = 'ecc';
-                    options.curve = curve;     
-                }
-
-                const key = await openpgp.generateKey(options);
-                finishGpgGen(key.privateKey, key.publicKey, algo);
-                
-            } catch (e) {
-                output.innerHTML += `<div style="color:var(--danger);">gpg: error generating key: ${e.message}</div>`;
-                textbox.disabled = false;
-                textbox.focus();
-            }
-        }
-        function downloadFile(filename, text) {
-            const element = document.createElement('a');
-            // Wymuszamy czysty tekst i poprawne kodowanie UTF-8
-            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-            element.setAttribute('download', filename);
-            element.style.display = 'none';
-            document.body.appendChild(element);
-            element.click();
-            document.body.removeChild(element);
-        }
         function startSnakeGame() {
             const output = document.getElementById('terminal-output');
             const textbox = document.getElementById('terminal-textbox');
@@ -1402,271 +1123,8 @@
             gameInterval = setInterval(updateGame, 150);
             drawBoard();
         }
-        function triggerAirodump() {
-    const output = document.getElementById('terminal-output');
-    const textbox = document.getElementById('terminal-textbox');
-    textbox.disabled = true;
 
-    const networks = [
-        { bssid: 'AA:BB:CC:DD:EE:01', ch: 1, essid: 'HomeWiFi', enc: 'WPA2', pwr: '-45', beacons: 123, data: 45 },
-        { bssid: 'AA:BB:CC:DD:EE:02', ch: 6, essid: 'Guest_Network', enc: 'WPA2', pwr: '-67', beacons: 89, data: 12 },
-        { bssid: 'AA:BB:CC:DD:EE:03', ch: 11, essid: 'Office_5G', enc: 'WPA3', pwr: '-32', beacons: 456, data: 234 },
-        { bssid: 'AA:BB:CC:DD:EE:04', ch: 1, essid: 'Neighbor_WiFi', enc: 'WPA', pwr: '-78', beacons: 34, data: 5 },
-        { bssid: 'AA:BB:CC:DD:EE:05', ch: 6, essid: 'IoT_Devices', enc: 'WPA2', pwr: '-55', beacons: 201, data: 67 },
-        { bssid: 'AA:BB:CC:DD:EE:06', ch: 11, essid: 'Starbucks_WiFi', enc: 'Open', pwr: '-88', beacons: 567, data: 890 },
-    ];
-
-    const stations = [
-        { bssid: 'AA:BB:CC:DD:EE:01', station: '11:22:33:44:55:66', pwr: '-45', rate: '54e', lost: '0', frames: '123', probe: '' },
-        { bssid: 'AA:BB:CC:DD:EE:01', station: '11:22:33:44:55:77', pwr: '-55', rate: '54e', lost: '2', frames: '67', probe: 'HomeWiFi' },
-        { bssid: 'AA:BB:CC:DD:EE:03', station: '11:22:33:44:55:88', pwr: '-32', rate: '54e', lost: '0', frames: '234', probe: 'Office_5G' },
-        { bssid: 'AA:BB:CC:DD:EE:03', station: '11:22:33:44:55:99', pwr: '-40', rate: '54e', lost: '1', frames: '156', probe: '' },
-        { bssid: 'AA:BB:CC:DD:EE:05', station: '11:22:33:44:55:AA', pwr: '-55', rate: '54e', lost: '0', frames: '89', probe: 'IoT_Devices' },
-    ];
-
-    output.innerHTML += `<div style="color: var(--accent); font-weight: bold; margin: 8px 0;">
-        <i class="fas fa-wifi"></i> Starting airodump-ng on wlan0mon...
-    </div>`;
-
-    let progress = 0;
-
-    const interval = setInterval(() => {
-        progress += 5;
-        const existing = document.getElementById('airodump-output');
-        if (existing) existing.remove();
-
-        const div = document.createElement('div');
-        div.id = 'airodump-output';
-        div.style.fontFamily = 'JetBrains Mono, monospace';
-        div.style.fontSize = '0.85rem';
-        div.style.color = 'var(--text-main)';
-        div.style.background = 'rgba(0,0,0,0.5)';
-        div.style.padding = '15px';
-        div.style.borderRadius = '8px';
-        div.style.border = '1px solid var(--border-color)';
-        div.style.marginTop = '8px';
-        div.style.whiteSpace = 'pre-wrap';
-        div.style.minHeight = '400px';
-        div.style.maxHeight = '600px';
-        div.style.overflowY = 'auto';
-
-        let content = '';
-        content += `\x1b[1;36mCH  1 ][ Elapsed: ${Math.floor(progress/100*12)} s ][ 2026-08-30 21:37:22 \x1b[0m\n\n`;
-
-        // TABELA BSSID
-        content += `\x1b[1;33m BSSID              PWR  Beacons    #Data, #/s  CH  MB   ENC  CIPHER AUTH ESSID\x1b[0m\n`;
-        content += `\x1b[1;33m                                                                               \x1b[0m\n`;
-        const visibleNetworks = networks.slice(0, Math.floor(progress/100 * networks.length) + 1);
-        visibleNetworks.forEach((net) => {
-            const mb = net.enc === 'WPA3' ? '54e' : '54e.6';
-            content += ` ${net.bssid}  ${net.pwr}   ${net.beacons}       ${net.data}    0  ${net.ch}  ${mb}  ${net.enc}  CCMP   PSK  ${net.essid}\n`;
-        });
-
-        // STATIONS – pokazuj od razu, ale stopniowo
-        const visibleStations = stations.slice(0, Math.floor(progress/100 * stations.length) + 1);
-        if (visibleStations.length > 0) {
-            content += `\n\x1b[1;33m BSSID              STATION            PWR   Rate    Lost  Frames  Probe\x1b[0m\n`;
-            content += `\x1b[1;33m                                                                           \x1b[0m\n`;
-            visibleStations.forEach((s) => {
-                content += ` ${s.bssid}  ${s.station}  ${s.pwr}   ${s.rate}    ${s.lost}   ${s.frames}    ${s.probe}\n`;
-            });
-        } else {
-            content += `\n\x1b[1;36m[ * ] Scanning for stations... (${progress}%)\x1b[0m\n`;
-        }
-
-        const bar = `\n[${'█'.repeat(Math.floor(progress/100*30))}${'░'.repeat(30-Math.floor(progress/100*30))}] ${progress}%`;
-        content += bar;
-
-        div.textContent = content;
-        output.appendChild(div);
-        output.scrollTop = output.scrollHeight;
-
-        if (progress >= 100) {
-            clearInterval(interval);
-            textbox.disabled = false;
-            textbox.focus();
-        }
-    }, 150);
-}
-        function triggerAireplay() {
-    const output = document.getElementById('terminal-output');
-    const textbox = document.getElementById('terminal-textbox');
-    textbox.disabled = true;
-
-    const targetBSSID = 'AA:BB:CC:DD:EE:01';
-    const targetESSID = 'HomeWiFi';
-
-    // Lista stacji (klientów) – losowe MAC
-    const stations = [
-        '11:22:33:44:55:66',
-        '11:22:33:44:55:77',
-        '11:22:33:44:55:88',
-        '11:22:33:44:55:99',
-        '11:22:33:44:55:AA'
-    ];
-
-    output.innerHTML += `<div style="color: var(--warning); font-weight: bold; margin: 8px 0;">
-        <i class="fas fa-skull-crossbones"></i> Starting aireplay-ng deauth attack on ${targetESSID} (${targetBSSID})
-    </div>`;
-
-    let sent = 0;
-    const maxPackets = 128;
-
-    const interval = setInterval(() => {
-        sent++;
-        const existing = document.getElementById('aireplay-output');
-        if (existing) existing.remove();
-
-        const div = document.createElement('div');
-        div.id = 'aireplay-output';
-        div.style.fontFamily = 'JetBrains Mono, monospace';
-        div.style.fontSize = '0.85rem';
-        div.style.color = 'var(--text-main)';
-        div.style.background = 'rgba(0,0,0,0.5)';
-        div.style.padding = '15px';
-        div.style.borderRadius = '8px';
-        div.style.border = '1px solid var(--border-color)';
-        div.style.marginTop = '8px';
-        div.style.whiteSpace = 'pre-wrap';
-        div.style.minHeight = '300px';
-        div.style.maxHeight = '500px';
-        div.style.overflowY = 'auto';
-
-        let content = '';
-        const progress = Math.min(100, Math.floor((sent / maxPackets) * 100));
-
-        // Nagłówek z paskiem postępu
-        content += `\x1b[1;33m[ * ] Sending deauth packets to ${targetBSSID} (channel 1)\x1b[0m\n`;
-        content += `\x1b[1;32m[ + ] Packets sent: ${sent}/${maxPackets}  [${'█'.repeat(Math.floor(progress/100*20))}${'░'.repeat(20-Math.floor(progress/100*20))}] ${progress}%\x1b[0m\n\n`;
-
-        // Wyświetl ostatnie 15 pakietów
-        const start = Math.max(0, sent - 15);
-        for (let i = start; i < sent; i++) {
-            const pktNum = i + 1;
-            // Losowo wybierz stację lub broadcast
-            const isBroadcast = (i % 5 === 0); // co 5 pakiet broadcast
-            const targetMAC = isBroadcast ? 'FF:FF:FF:FF:FF:FF' : stations[i % stations.length];
-            const color = isBroadcast ? '\x1b[1;33m' : '\x1b[1;34m';
-            const symbol = isBroadcast ? '📡' : '🎯';
-            content += `${color}[ ${String(pktNum).padStart(3, ' ')} | ${String(sent).padStart(3, ' ')}/${maxPackets} ]  ${symbol} DeAuth to ${targetMAC} (${Math.floor(Math.random()*1000)})\x1b[0m\n`;
-        }
-
-        // Dodatkowe informacje o liczbie odrzuconych
-        if (sent > 10) {
-            const dropped = Math.floor(Math.random() * 3);
-            content += `\x1b[1;31m[ ! ] ${dropped} packets dropped (out of order)\x1b[0m\n`;
-        }
-
-        if (sent >= maxPackets) {
-            content += `\n\x1b[1;32m[ ✓ ] Deauth attack completed! ${sent} packets sent.\x1b[0m\n`;
-            content += `\x1b[1;33m[ ! ] Client ${targetBSSID} has been deauthenticated.\x1b[0m\n`;
-            content += `\x1b[1;36m[ i ] Waiting for WPA handshake capture...\x1b[0m\n`;
-        }
-
-        div.textContent = content;
-        output.appendChild(div);
-        output.scrollTop = output.scrollHeight;
-
-        if (sent >= maxPackets) {
-            clearInterval(interval);
-            textbox.disabled = false;
-            textbox.focus();
-        }
-    }, 100); // szybsze wysyłanie
-}
-function triggerAircrack() {
-    const output = document.getElementById('terminal-output');
-    const textbox = document.getElementById('terminal-textbox');
-    textbox.disabled = true;
-
-    const foundPassword = 'hacktheworld2024';
-    const masterKey = Array(32).fill(0).map(() => Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');
-    const eapolHMAC = Array(32).fill(0).map(() => Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');
-
-    // Funkcja do generowania losowego hexa o długości len
-    const randomHex = (len) => Array(len).fill(0).map(() => Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');
-
-    output.innerHTML += `<div style="color: var(--success); font-weight: bold; margin: 8px 0;">
-        <i class="fas fa-unlock"></i> Starting aircrack-ng on wpa_handshake.cap
-    </div>`;
-
-    let attempts = 0;
-    const maxAttempts = 47;
-    const passwordList = ['12345678', 'password123', 'qwerty123', 'letmein', 'abc123', 'admin123', 'wifi123', 'computer', 'internet', 'wireless', 'network', 'security', 'aircrack', 'hackme', 'iloveyou', 'monkey', 'dragon', 'master', 'superman', 'batman', 'matrix', 'starwars', 'pokemon', 'pepper', 'summer', 'winter', 'spring', 'autumn', 'shadow', 'darkness', 'light', 'fire', 'water', 'earth', 'wind', 'solar', 'lunar', 'cosmic', 'galaxy', 'nebula', 'zen', 'focus', 'dream', 'vision', 'victory', 'glory', 'power', 'strength'];
-
-    let currentPTK = randomHex(64); // początkowe losowe hexy
-
-    const interval = setInterval(() => {
-        attempts++;
-        // Co 3 iteracje generuj nowy losowy PTK (symulacja zmiany klucza)
-        if (attempts % 3 === 0) {
-            currentPTK = randomHex(64);
-        }
-
-        const existing = document.getElementById('aircrack-output');
-        if (existing) existing.remove();
-
-        const div = document.createElement('div');
-        div.id = 'aircrack-output';
-        div.style.fontFamily = 'JetBrains Mono, monospace';
-        div.style.fontSize = '0.85rem';
-        div.style.color = 'var(--text-main)';
-        div.style.background = 'rgba(0,0,0,0.5)';
-        div.style.padding = '15px';
-        div.style.borderRadius = '8px';
-        div.style.border = '1px solid var(--border-color)';
-        div.style.marginTop = '8px';
-        div.style.whiteSpace = 'pre-wrap';
-        div.style.wordBreak = 'break-all';
-        div.style.minHeight = '400px';
-        div.style.maxHeight = '600px';
-        div.style.overflowY = 'auto';
-
-        let content = '';
-        const progress = Math.min(100, Math.floor((attempts / maxAttempts) * 100));
-
-        content += `\x1b[1;33m[ i ] Using dictionary attack with /usr/share/wordlists/rockyou.txt\x1b[0m\n`;
-        content += `\x1b[1;36m[ + ] Trying password: ${passwordList[attempts % passwordList.length]}\x1b[0m\n`;
-        content += `[${'█'.repeat(Math.floor(progress/100*30))}${'░'.repeat(30-Math.floor(progress/100*30))}] ${progress}%\n`;
-        content += `\x1b[1;34m[ * ] Keys: ${attempts} tested, ${attempts*12} per second (${progress}%)\x1b[0m\n\n`;
-
-        // Tablica PTK z latającymi hexami (zawsze widoczna)
-        const blink = (attempts % 2 === 0) ? '\x1b[1;32m' : '\x1b[1;33m';
-        content += `${blink}┌─────────────────────────────────────────────────────────────────────────────┐\x1b[0m\n`;
-        content += `${blink}│  PTK (Pairwise Transient Key) – 64 bytes  ${attempts < maxAttempts ? '[ calculating... ]' : '[ FOUND ]'}   │\x1b[0m\n`;
-        content += `${blink}├─────────────────────────────────────────────────────────────────────────────┤\x1b[0m\n`;
-        const hexRows = currentPTK.match(/.{1,32}/g) || [];
-        hexRows.forEach((row, idx) => {
-            const color = (idx % 2 === 0) ? '\x1b[1;36m' : '\x1b[1;37m';
-            content += `${color}│  ${row.padEnd(32, ' ')} │\x1b[0m\n`;
-        });
-        content += `${blink}├─────────────────────────────────────────────────────────────────────────────┤\x1b[0m\n`;
-        content += `${blink}│  EAPOL HMAC – SHA256  ${attempts < maxAttempts ? '[ computing... ]' : '[ VERIFIED ]'}                        │\x1b[0m\n`;
-        content += `${blink}├─────────────────────────────────────────────────────────────────────────────┤\x1b[0m\n`;
-        // EAPOL HMAC też losowe w czasie bruteforce, a po znalezieniu stałe
-        const currentEAPOL = attempts < maxAttempts ? randomHex(32) : eapolHMAC;
-        content += `\x1b[1;35m│  ${currentEAPOL} │\x1b[0m\n`;
-        content += `${blink}└─────────────────────────────────────────────────────────────────────────────┘\x1b[0m\n`;
-
-        // Jeśli znaleziono hasło – dodatkowe informacje
-        if (attempts >= maxAttempts) {
-            content += `\n\x1b[1;32m[ ✓ ] KEY FOUND ! [ ${foundPassword} ]\x1b[0m\n`;
-            content += `\x1b[1;32m[ + ] Passphrase : ${foundPassword}\x1b[0m\n`;
-            content += `\x1b[1;32m[ + ] Master Key : ${masterKey}\x1b[0m\n`;
-            content += `\x1b[1;33m[ ! ] PMK       : ${masterKey.slice(0, 32)}\x1b[0m\n`;
-        }
-
-        div.textContent = content;
-        output.appendChild(div);
-        output.scrollTop = output.scrollHeight;
-
-        if (attempts >= maxAttempts) {
-            clearInterval(interval);
-            textbox.disabled = false;
-            textbox.focus();
-        }
-    }, 130);
-}// ==========================
+        // ==========================
         // MSFCONSOLE SPECIFIC LOGIC
         // ==========================
         function getOptionsHTML() {
@@ -1833,42 +1291,12 @@ Exploit target:
         }
 
         document.getElementById('terminal-textbox').addEventListener('keydown', function(e) {
-            // ===== OBSŁUGA STRZAŁEK (historia) =====
-            if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (historyIndex > 0) {
-                    historyIndex--;
-                    this.value = commandHistory[historyIndex] || '';
-                }
-                return;
-            }
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (historyIndex < commandHistory.length - 1) {
-                    historyIndex++;
-                    this.value = commandHistory[historyIndex] || '';
-                } else {
-                    historyIndex = commandHistory.length;
-                    this.value = '';
-                }
-                return;
-            }
-
-            // ===== OBSŁUGA ENTER (TWÓJ ISTNIEJĄCY KOD) =====
             if (e.key === 'Enter') {
                 const output = document.getElementById('terminal-output');
                 const cmdString = this.value.trim();
                 const args = cmdString.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
                 let cmd = args[0] ? args[0].toLowerCase() : '';
                 this.value = '';
-
-                // ---- DODAJ KOMENDĘ DO HISTORII ----
-                if (cmdString) {
-                    if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== cmdString) {
-                        commandHistory.push(cmdString);
-                    }
-                    historyIndex = commandHistory.length;
-                }
 
                 // Handle Auth phase
                 if (!isTerminalInited) {
@@ -1885,7 +1313,7 @@ Exploit target:
                     output.scrollTop = output.scrollHeight;
                     return;
                 }
-                output.scrollTop = output.scrollHeight;
+
                 output.innerHTML += `<div>${getPromptHTML()} ${cmdString}</div>`;
 
                 if (cmd === '') {
@@ -1991,12 +1419,7 @@ Matching Modules
                         triggerSl();
                     } else if (cmd === 'ssh-keygen') {
                         triggerSshKeygen(args.slice(1));
-                    } else if (cmd === 'gpg') {
-                        if (args[1] === '--gen-key' || args[1] === '--full-generate-key') {
-                            triggerGpgGen(args.slice(1));
-                        } else {
-                            output.innerHTML += `<div>Usage: gpg --gen-key -t [rsa | ed25519 | kyber]</div>`;
-                    }} else if (cmd === 'snake') {
+                    } else if (cmd === 'snake') {
                         startSnakeGame();
                     } else if (cmd === 'su' && isSudo) {
                         activeUser = 'root';
@@ -2020,18 +1443,7 @@ Matching Modules
                             } else output.innerHTML += `<div>bash: cd: ${targetArg}: No such file or directory</div>`;
                         }
                         document.getElementById('prompt-user').innerHTML = getPromptHTML();
-                    } else if (cmd === 'history') {
-                        if (commandHistory.length === 0) {
-                            output.innerHTML += `<div style="color: var(--text-muted);">No commands in history.</div>`;
-                        } else {
-                            let html = '<div style="font-family: JetBrains Mono, monospace;">';
-                            commandHistory.forEach((c, i) => {
-                                html += `<div>${String(i+1).padStart(4, ' ')}  ${c}</div>`;
-                            });
-                            html += '</div>';
-                            output.innerHTML += html;
-                        }
-                    }else if (cmd === 'ls') {
+                    } else if (cmd === 'ls') {
                         const cmdArgs = args.slice(1);
                         const hasHidden = cmdArgs.some(a => a.startsWith('-') && (a.includes('a') || a.includes('h') || a.includes('l')));
                         let targetArg = cmdArgs.find(a => !a.startsWith('-')) || '.';
@@ -2062,7 +1474,7 @@ Matching Modules
                         } else {
                             output.innerHTML += `<div>chmod: missing operand or unrecognized file</div>`;
                         }
-                    }   else if (cmd === 'cat') {
+                    } else if (cmd === 'cat') {
                         let targetArg = args[1];
                         if (!targetArg) output.innerHTML += `<div>cat: missing operand</div>`;
                         else {
@@ -2080,17 +1492,11 @@ Matching Modules
                                 if (item.type === 'dir') output.innerHTML += `<div>cat: ${targetArg}: Is a directory</div>`;
                                 else {
                                     let fileName = resolvedTarget.substring(resolvedTarget.lastIndexOf('/') + 1);
-                                    if (['id_rsa', 'id_ed25519', 'shadow'].includes(fileName) && activeUser !== 'root' && !isSudo) {
+                                    if (['id_rsa', 'flag.txt', 'shadow'].includes(fileName) && activeUser !== 'root' && !isSudo) {
                                         output.innerHTML += `<div style="color:var(--danger);">cat: ${targetArg}: Permission denied</div>`;
                                     } else {
-                                        let col = fileName === 'flag.txt' ? 'var(--success)' : (fileName.includes('id_') ? 'var(--danger)' : 'var(--text-main)');
-                                        
-                                        // Jeśli to klucz prywatny lub publiczny (PEM/OpenSSH), renderujemy go w <pre> z zachowaniem układu
-                                        if (item.content.includes('-----BEGIN') || item.content.startsWith('ssh-')) {
-                                            output.innerHTML += `<pre style="color:${col}; font-family:'JetBrains Mono', monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; margin: 0;">${item.content}</pre>`;
-                                        } else {
-                                            output.innerHTML += `<div>${formatContent(item.content)}</div>`;
-                                        }
+                                        let col = fileName === 'flag.txt' ? 'var(--success)' : (fileName==='id_rsa'?'var(--danger)':'var(--text-main)');
+                                        output.innerHTML += `<div style="color:${col};">${item.content}</div>`;
                                     }
                                 }
                             } else output.innerHTML += `<div>cat: ${targetArg}: No such file or directory</div>`;
@@ -2101,20 +1507,12 @@ Matching Modules
 1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
     inet 127.0.0.1/8 scope host lo
-       valid_lft forever preferred_lft forever <br>
+       valid_lft forever preferred_lft forever
 2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
     link/ether 08:00:27:8c:13:59 brd ff:ff:ff:ff:ff:ff
     inet 192.168.1.5/24 brd 192.168.1.255 scope global dynamic eth0
        valid_lft 86311sec preferred_lft 86311sec
 </div>`;
-                    }else if (cmd === 'airodump-ng') {
-                        triggerAirodump();
-                    }
-                    else if (cmd === 'aireplay-ng') {
-                        triggerAireplay();
-                    }
-                    else if (cmd === 'aircrack-ng') {
-                        triggerAircrack();
                     } else if (cmd === 'msfconsole') {
                         startMsf();
                     } else if (cmd === 'help') {
@@ -2130,9 +1528,6 @@ Matching Modules
                             <br> - <b>ssh-keygen [-t rsa|ed25519] [-b bits] [-l]</b> : generate SSH key pair or list fingerprint
                             <br> - <b>msfconsole</b> : Launch Metasploit Framework
                             <br> - <b>snake</b> : snake game lol
-                            <br> - <b>gpg --gen-key -t [algo] [options]</b> : generate PGP key
-                            <br> &nbsp;&nbsp;&nbsp;algos: rsa, ed25519, brainpool, kyber
-                            <br> &nbsp;&nbsp;&nbsp;options: -b [bits] (for rsa), -c [curve] (for brainpool), --name "X", --email "Y"
                             <br> - <b>exit</b> : close SSH session
                         </div>`;
                     } else if (['./linpeas.sh', '.\\linpeas.sh', 'linpeas.sh'].includes(cmd) || 
