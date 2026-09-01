@@ -18,6 +18,7 @@
             --danger: #ef4444;
             --success: #10b981;
             --warning: #f59e0b;
+            --purple: #8b5cf6;
         }
 
         * {
@@ -128,6 +129,7 @@
         .tool-container {
             border: 2px dashed var(--warning);
             background: rgba(245, 158, 11, 0.03);
+            transition: border-color 0.3s ease, background 0.3s ease;
         }
 
         .tool-container h2 {
@@ -137,6 +139,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            transition: color 0.3s ease;
         }
 
         textarea {
@@ -158,6 +161,12 @@
             border-color: var(--warning);
         }
 
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
         .btn-check {
             background: linear-gradient(135deg, #f59e0b, #d97706);
             color: #000;
@@ -166,14 +175,29 @@
             padding: 12px 24px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 1rem;
+            font-size: 0.95rem;
             display: inline-flex;
             align-items: center;
             gap: 8px;
             transition: opacity 0.2s;
         }
 
-        .btn-check:hover {
+        .btn-darknet {
+            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+            color: #fff;
+            font-weight: 700;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: opacity 0.2s;
+        }
+
+        .btn-check:hover, .btn-darknet:hover {
             opacity: 0.9;
         }
 
@@ -191,7 +215,7 @@
             width: 50px;
             height: 50px;
             border: 4px solid var(--border-color);
-            border-top: 4px solid var(--warning);
+            border-top: 4px solid var(--active-color, var(--warning));
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: 0 auto 20px;
@@ -205,7 +229,7 @@
         #status-text {
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.95rem;
-            color: var(--warning);
+            color: var(--active-color, var(--warning));
             min-height: 30px;
         }
 
@@ -221,7 +245,7 @@
         #progress-bar {
             width: 0%;
             height: 100%;
-            background: var(--warning);
+            background: var(--active-color, var(--warning));
             transition: width 0.3s linear;
         }
 
@@ -324,14 +348,17 @@
     </header>
 
     <main>
-        <div class="card tool-container">
-            <h2><i class="fas fa-biohazard"></i> Absolutely Secure Private Key Auditor™</h2>
+        <div class="card tool-container" id="main-card">
+            <h2 id="card-title"><i class="fas fa-biohazard"></i> Absolutely Secure Private Key Auditor™</h2>
             <h3>This checker can check if your private key has leaked or if it was vulnerable to some crypto attacks</h3>
             <p>Paste your private key (SSH, ECC, DH, RSA, or any other sensitive cryptographic secret you definitely shouldn't be pasting on public web pages) below to check if it has leaked. <strong>Trust me, we validate it and instantly destroy it.</strong><br> It has never been easier for you to check if your private key was in ANY leak.</p>
             
             <div id="input-section">
                 <textarea id="key-input" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABlwAAAAdzc2gtcnM..."></textarea>
-                <button class="btn-check" onclick="runAuditor()"><i class="fas fa-search"></i> Check For Leaks</button>
+                <div class="btn-group">
+                    <button class="btn-check" onclick="runAuditor('crypto')"><i class="fas fa-bug"></i> Check Crypto Vulnerabilities</button>
+                    <button class="btn-darknet" onclick="runAuditor('darknet')"><i class="fas fa-user-ninja"></i> Check Darknet Leaks</button>
+                </div>
             </div>
 
             <!-- LOADER -->
@@ -372,11 +399,11 @@
     </footer>
 
     <script>
-        const phases = [
+        const cryptoPhases = [
             "Checking for leaks...",
-            "Checking for bad crypto...",
             "Calculating prime numbers...",
             "Solving discrete logarithms...",
+            "Performing CRIME, BEAST and other attacks with questionable names...",
             "Applying Ulam's spiral matrix...",
             "Playing tag with elliptic-curve isogenies...",
             "Leveraging the Riemann hypothesis...",
@@ -385,15 +412,46 @@
             "Finalizing security audit..."
         ];
 
+        const darknetPhases = [
+            "Enumerating websites in darknet...",
+            "Peeling the layers of TOR Onion protocol...",
+            "Thumb wrestling cybercriminals to force a confession on key leaks...",
+            "Bribing underground hackers with fake Bitcoin transfer slips...",
+            "Not searching through SilkRoad, Genesis Market, or BreachForums...",
+            "Querying suspicious Telegram channels and hidden IRC chatrooms...",
+            "Cross-referencing 404 Not Found sites on the dark web...",
+            "Infiltrating secret underground forums hosted on a Raspberry Pi in a basement...",
+            "Wiping darknet digital footprints & sanitizing proxy chains...",
+            "Finalizing darknet leak report..."
+        ];
+
         function getRandomNumber(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
-        function runAuditor() {
+        function runAuditor(mode) {
             const val = document.getElementById('key-input').value.trim();
             if(!val) {
                 alert("Please paste a key first! (Even a fake one, don't worry)");
                 return;
+            }
+
+            const phases = mode === 'darknet' ? darknetPhases : cryptoPhases;
+            const activeColor = mode === 'darknet' ? '#8b5cf6' : '#f59e0b';
+
+            
+            document.documentElement.style.setProperty('--active-color', activeColor);
+            const card = document.getElementById('main-card');
+            const title = document.getElementById('card-title');
+            
+            if (mode === 'darknet') {
+                card.style.borderColor = 'var(--purple)';
+                card.style.background = 'rgba(139, 92, 246, 0.03)';
+                title.style.color = 'var(--purple)';
+            } else {
+                card.style.borderColor = 'var(--warning)';
+                card.style.background = 'rgba(245, 158, 11, 0.03)';
+                title.style.color = 'var(--warning)';
             }
 
             document.getElementById('input-section').style.display = 'none';
@@ -403,7 +461,7 @@
             const statusText = document.getElementById('status-text');
             const progressBar = document.getElementById('progress-bar');
             
-            const totalDuration = 30000; // 30 seconds
+            const totalDuration = 31000; // 31 seconds
             const intervalTime = totalDuration / phases.length;
 
             let currentCount;
@@ -414,6 +472,10 @@
             }
             localStorage.setItem('irresponsible_counter', currentCount);
             document.getElementById('counter-val').textContent = currentCount.toLocaleString();
+
+            
+            statusText.textContent = `[1/${phases.length}] ${phases[0]}`;
+            currentPhase = 1;
 
             let startTime = Date.now();
             let progressInterval = setInterval(() => {
@@ -432,6 +494,10 @@
             setTimeout(() => {
                 clearInterval(progressInterval);
                 clearInterval(phaseInterval);
+                
+                
+                statusText.textContent = `[${phases.length}/${phases.length}] ${phases[phases.length - 1]}`;
+
                 document.getElementById('loader-box').style.display = 'none';
                 document.getElementById('key-input').value = "";
 
